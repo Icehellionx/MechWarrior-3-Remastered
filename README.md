@@ -12,7 +12,7 @@ This project is not affiliated with or endorsed by MicroProse, Hasbro Interactiv
 
 1. Download and run the installer.
 2. Point it to your MechWarrior 3 ISO.
-3. Launch the game from the new desktop shortcut.
+3. Open the new desktop launcher and choose a game or manual.
 
 If the direct link does not work, open the [latest release page](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest) and download `MechWarrior-3-Remastered-Setup.exe` under **Assets**.
 
@@ -44,7 +44,7 @@ Neither ISO is included, uploaded, or copied into the installed directory.
 2. Browse to your MechWarrior 3 ISO.
 3. Optionally select Pirate's Moon and browse to its RIP ZIP, extracted RIP folder, or ISO.
 4. Keep the default `Program Files (x86)` destination or choose another empty directory.
-5. Use the installed desktop or Start-menu shortcut.
+5. Use the installed desktop or Start-menu launcher to open either game or either manual.
 
 Keep ISO files at the paths selected during setup. The launcher mounts the relevant disc before starting the game and prompts again if it moves. A Pirate's Moon RIP ZIP/folder is only needed during installation.
 
@@ -54,10 +54,12 @@ Keep ISO files at the paths selected during setup. The launcher mounts the relev
 - Applies the official MechWarrior 3 v1.2 files.
 - Adds DDrawCompat, ZipperFixup, the MW3 remaster shader, and CD-audio compatibility.
 - Creates all-user desktop and Start-menu shortcuts.
+- Installs a black-and-red remaster hub for both games and both PDF manuals.
+- Detects the game's intermittent early video-initialization failure and retries automatically up to four times.
 - Registers an uninstaller in Windows Apps/Installed apps.
 - Installs the hash-verified Indeo 5 codec from the user's MW3 disc for retail FMV playback.
 - Stores the selected ISO paths locally in `install.cfg`.
-- Installs both original manuals under `Manuals` and links them from the Start menu.
+- Installs both original manuals under `Manuals`, links them from the launcher, and also links them from the Start menu.
 
 See [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before installing if you want the full details.
 

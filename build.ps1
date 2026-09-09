@@ -23,10 +23,10 @@ function Copy-ReleaseFile {
 $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $csc -PathType Leaf)) { throw 'The Windows .NET Framework C# compiler is unavailable.' }
 $launcher = Join-Path $payloadRoot 'MW3Launcher.exe'
-& $csc /nologo /target:winexe /platform:anycpu /optimize+ "/win32manifest:$releaseRoot\src\launcher.manifest" "/out:$launcher" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "$releaseRoot\src\Launcher.cs"
+& $csc /nologo /target:winexe /platform:anycpu /optimize+ "/win32manifest:$releaseRoot\src\launcher.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/resource:$releaseRoot\assets\MW3-Game.png,MW3.Game.png" "/resource:$releaseRoot\assets\Pirates-Moon-Game.png,PiratesMoon.Game.png" "/resource:$releaseRoot\assets\MW3-Manual-Cover.png,MW3.ManualCover.png" "/resource:$releaseRoot\assets\Pirates-Moon-Manual-Cover.png,PiratesMoon.ManualCover.png" "/out:$launcher" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "$releaseRoot\src\Launcher.cs"
 if ($LASTEXITCODE) { throw "Launcher compilation failed with exit code $LASTEXITCODE." }
 $uninstaller = Join-Path $payloadRoot 'Uninstall.exe'
-& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/out:$uninstaller" /reference:System.Windows.Forms.dll "$releaseRoot\src\Uninstaller.cs"
+& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$uninstaller" /reference:System.Windows.Forms.dll "$releaseRoot\src\Uninstaller.cs"
 if ($LASTEXITCODE) { throw "Uninstaller compilation failed with exit code $LASTEXITCODE." }
 
 # Extraction tool: used temporarily and not left in the installed game.
@@ -89,7 +89,7 @@ if ($forbidden) { throw "Forbidden release input detected: $($forbidden.FullName
 $payloadZip = Join-Path $objRoot 'payload.zip'
 Compress-Archive -Path (Join-Path $payloadRoot '*') -DestinationPath $payloadZip -CompressionLevel Optimal
 $setup = Join-Path $distRoot 'MechWarrior-3-Remastered-Setup.exe'
-& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/out:$setup" "/resource:$payloadZip,Payload.zip" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll "$releaseRoot\src\Installer.cs"
+& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$setup" "/resource:$payloadZip,Payload.zip" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll "$releaseRoot\src\Installer.cs"
 if ($LASTEXITCODE) { throw "Installer compilation failed with exit code $LASTEXITCODE." }
 
 $result = Get-Item -LiteralPath $setup

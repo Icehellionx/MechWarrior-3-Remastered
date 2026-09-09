@@ -17,8 +17,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("MechWarrior 3 Remastered contributors")]
 [assembly: AssemblyProduct("MechWarrior 3 Remastered")]
 [assembly: AssemblyCopyright("Copyright © 2026 MechWarrior 3 Remastered contributors")]
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyVersion("1.2.0.0")]
+[assembly: AssemblyFileVersion("1.2.0.0")]
 
 internal sealed class InstallerForm : Form
 {
@@ -123,7 +123,7 @@ internal sealed class InstallerForm : Form
         {
             await Task.Run(delegate { PerformInstall(finalRoot); });
             progress.Visible = false; status.Text = "Installation complete.";
-            MessageBox.Show(this, "MechWarrior 3 Remastered is installed. Game shortcuts were added to the desktop, and both manuals are available in the Start menu.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "MechWarrior 3 Remastered is installed. Use the desktop launcher to start either game or open either original manual.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
             Close();
         }
         catch (Exception ex)
@@ -200,7 +200,7 @@ internal sealed class InstallerForm : Form
 
             if (Directory.Exists(finalRoot)) Directory.Delete(finalRoot);
             Directory.Move(stageRoot, finalRoot);
-            CreateShortcuts(finalRoot, installPm.Checked);
+            CreateShortcuts(finalRoot);
             RegisterUninstall(finalRoot);
         }
         catch
@@ -377,20 +377,19 @@ internal sealed class InstallerForm : Form
         using (SHA256 sha = SHA256.Create()) using (FileStream stream = File.OpenRead(path)) return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "");
     }
 
-    private static void CreateShortcuts(string root, bool pm)
+    private static void CreateShortcuts(string root)
     {
         string desktop = Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory);
         string menu = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu), "Programs", "MechWarrior 3 Remastered"); Directory.CreateDirectory(menu);
-        CreateShortcut(Path.Combine(desktop, "MechWarrior 3 Remastered.lnk"), root, "mw3", Path.Combine(root, "MechWarrior 3", "Mech3fixup.exe"));
-        CreateShortcut(Path.Combine(menu, "MechWarrior 3 Remastered.lnk"), root, "mw3", Path.Combine(root, "MechWarrior 3", "Mech3fixup.exe"));
-        if (pm) { CreateShortcut(Path.Combine(desktop, "MechWarrior 3 - Pirate's Moon.lnk"), root, "pm", Path.Combine(root, "Pirates Moon", "Mech3fixup.exe")); CreateShortcut(Path.Combine(menu, "Pirate's Moon.lnk"), root, "pm", Path.Combine(root, "Pirates Moon", "Mech3fixup.exe")); }
+        CreateShortcut(Path.Combine(desktop, "MechWarrior 3 Remastered.lnk"), root);
+        CreateShortcut(Path.Combine(menu, "MechWarrior 3 Remastered.lnk"), root);
         CreateDocumentShortcut(Path.Combine(menu, "Manual - MechWarrior 3.lnk"), Path.Combine(root, "Manuals", "MechWarrior 3 Manual.pdf"));
         CreateDocumentShortcut(Path.Combine(menu, "Manual - Pirate's Moon.lnk"), Path.Combine(root, "Manuals", "MechWarrior 3 Pirate's Moon Manual.pdf"));
     }
-    private static void CreateShortcut(string path, string root, string args, string icon)
+    private static void CreateShortcut(string path, string root)
     {
         Type type = Type.GetTypeFromProgID("WScript.Shell"); dynamic shell = Activator.CreateInstance(type); dynamic link = shell.CreateShortcut(path);
-        link.TargetPath = Path.Combine(root, "MW3Launcher.exe"); link.Arguments = args; link.WorkingDirectory = root; link.IconLocation = icon + ",0"; link.Save();
+        link.TargetPath = Path.Combine(root, "MW3Launcher.exe"); link.Arguments = ""; link.WorkingDirectory = root; link.IconLocation = Path.Combine(root, "MW3Launcher.exe") + ",0"; link.Description = "Open the MechWarrior 3 Remastered launcher"; link.Save();
     }
     private static void CreateDocumentShortcut(string path, string document)
     {
@@ -402,7 +401,7 @@ internal sealed class InstallerForm : Form
         using (RegistryKey hklm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64))
         using (RegistryKey key = hklm.CreateSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MW3Remastered"))
         {
-            key.SetValue("DisplayName", "MechWarrior 3 Remastered"); key.SetValue("DisplayVersion", "1.1.0"); key.SetValue("Publisher", "Community preservation project");
+            key.SetValue("DisplayName", "MechWarrior 3 Remastered"); key.SetValue("DisplayVersion", "1.2.0"); key.SetValue("Publisher", "Community preservation project");
             key.SetValue("InstallLocation", root); key.SetValue("DisplayIcon", Path.Combine(root, "MW3Launcher.exe"));
             key.SetValue("UninstallString", "\"" + Path.Combine(root, "Uninstall.exe") + "\""); key.SetValue("NoModify", 1, RegistryValueKind.DWord); key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
         }
