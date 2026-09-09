@@ -4,9 +4,21 @@ An unofficial community installer for running the 1999 PC release of MechWarrior
 
 This project is not affiliated with or endorsed by MicroProse, Hasbro Interactive, Zipper Interactive, Microsoft, The Topps Company, or any current rights holder.
 
-## Download
+## ⬇️ Download the installer
 
-Download `MechWarrior-3-Remastered-Setup.exe` and `SHA256SUMS.txt` together from the repository's **Releases** page. Do not download reposted copies from unrelated websites.
+### [Download MechWarrior 3 Remastered Setup.exe](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/MechWarrior-3-Remastered-Setup.exe)
+
+**Most people only need the link above.** You supply your own MechWarrior 3 ISO when the installer asks for it. Pirate's Moon is optional.
+
+1. Download and run the installer.
+2. Point it to your MechWarrior 3 ISO.
+3. Launch the game from the new desktop shortcut.
+
+If the direct link does not work, open the [latest release page](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest) and download `MechWarrior-3-Remastered-Setup.exe` under **Assets**.
+
+## Windows warning and checksum
+
+For verification, download [`SHA256SUMS.txt`](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/SHA256SUMS.txt) from the same release. Do not download reposted copies from unrelated websites.
 
 The installer is currently unsigned. Windows may display **Unknown publisher** or a Microsoft Defender SmartScreen warning. Verify the SHA-256 digest before deciding whether to run it; never disable SmartScreen or antivirus protection globally for this project.
 
