@@ -1,0 +1,41 @@
+name: Repository audit
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject media, secrets, and generated release binaries
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $forbidden = Get-ChildItem -Recurse -Force -File | Where-Object {
+            $_.Extension -in @('.iso', '.bin', '.cue', '.mdf', '.mds', '.pfx', '.p12', '.key', '.pem') -or
+            $_.Name -eq '.env' -or $_.Name -like '.env.*' -or
+            ($_.Extension -eq '.exe' -and $_.FullName -like '*\dist\*')
+          }
+          if ($forbidden) {
+            $forbidden.FullName | Write-Error
+            throw 'Forbidden public-repository files were detected.'
+          }
+      - name: Compile public source
+        shell: pwsh
+        run: |
+          $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+          New-Item -ItemType Directory -Path obj -Force | Out-Null
+          & $csc /nologo /target:winexe /platform:anycpu /optimize+ /win32manifest:src\launcher.manifest /out:obj\MW3Launcher.exe /reference:System.Windows.Forms.dll /reference:System.Drawing.dll src\Launcher.cs
+          if ($LASTEXITCODE) { throw 'Launcher compilation failed.' }
+          & $csc /nologo /target:winexe /platform:x64 /optimize+ /win32manifest:src\app.manifest /out:obj\Uninstall.exe /reference:System.Windows.Forms.dll src\Uninstaller.cs
+          if ($LASTEXITCODE) { throw 'Uninstaller compilation failed.' }
+          New-Item -ItemType Directory -Path obj\empty -Force | Out-Null
+          [IO.File]::WriteAllText((Join-Path (Resolve-Path obj\empty) 'placeholder.txt'), 'compile-only payload')
+          Compress-Archive -Path obj\empty -DestinationPath obj\empty-payload.zip
+          & $csc /nologo /target:winexe /platform:x64 /optimize+ /win32manifest:src\app.manifest /out:obj\Setup.exe /resource:obj\empty-payload.zip,Payload.zip /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll src\Installer.cs
+          if ($LASTEXITCODE) { throw 'Installer compilation failed.' }

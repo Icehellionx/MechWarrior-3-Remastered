@@ -1,0 +1,37 @@
+obj/
+smoke-test/
+*.log
+
+# Release binaries belong on GitHub Releases, not in Git history.
+dist/*.exe
+dist/SHA256SUMS.txt
+dist/PAYLOAD_MANIFEST.sha256
+
+# User-owned media and extracted game data must never be committed.
+*.iso
+*.bin
+*.cue
+*.mdf
+*.mds
+Installation Files/
+working/
+original/
+pirates-moon-working/
+pirates-moon-original/
+
+# Secrets and local signing material.
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.snk
+*.key
+*.pem
+
+.vs/
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store
