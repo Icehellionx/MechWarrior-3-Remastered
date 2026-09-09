@@ -10,7 +10,7 @@ The installer is currently unsigned. A matching checksum proves that a download 
 
 Setup requests administrator access because the default destination is Program Files (x86), shortcuts are created for all users, uninstall information is written under HKLM, and the retail Indeo codec is installed under SysWOW64. The normal game launcher runs as the current user.
 
-Setup also mounts user-selected ISO media, extracts a legacy InstallShield cabinet, patches the retail executable with ZipperFixup, and writes per-user game registry settings. These behaviors are required by the preservation workflow and are disclosed because security products may treat them as unusual.
+Setup also mounts user-selected ISO media, extracts legacy InstallShield/ZIP content, patches the selected retail executable with ZipperFixup, and writes per-user game registry settings. Pirate's Moon RIP inputs are accepted only when both executable hashes and the expected directory layout match the supported release; NFO, log, registry, uninstaller-state, and `CRACK` directory debris are not copied into the installed game. These behaviors are required by the preservation workflow and are disclosed because security products may treat them as unusual.
 
 Setup never asks users to disable antivirus software, SmartScreen, User Account Control, or other Windows security features.
 

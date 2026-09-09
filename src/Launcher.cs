@@ -13,8 +13,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("MechWarrior 3 Remastered contributors")]
 [assembly: AssemblyProduct("MechWarrior 3 Remastered")]
 [assembly: AssemblyCopyright("Copyright © 2026 MechWarrior 3 Remastered contributors")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
 
 internal static class Launcher
 {
@@ -28,16 +28,13 @@ internal static class Launcher
             bool pm = args.Length > 0 && args[0].Equals("pm", StringComparison.OrdinalIgnoreCase);
             string gameRoot = Path.Combine(root, pm ? "Pirates Moon" : "MechWarrior 3");
             string isoKey = pm ? "PiratesMoonIso" : "Mw3Iso";
-            string iso;
-            if (!cfg.TryGetValue(isoKey, out iso) || !File.Exists(iso))
+            string mediaType;
+            bool pmRip = pm && cfg.TryGetValue("PiratesMoonMediaType", out mediaType) && mediaType.Equals("Rip", StringComparison.OrdinalIgnoreCase);
+            string media = null;
+            if (!pmRip && (!cfg.TryGetValue(isoKey, out media) || !File.Exists(media)))
             {
-                using (OpenFileDialog picker = new OpenFileDialog())
-                {
-                    picker.Title = "Locate your " + (pm ? "Pirate's Moon" : "MechWarrior 3") + " ISO";
-                    picker.Filter = "Disc images (*.iso)|*.iso|All files (*.*)|*.*";
-                    if (picker.ShowDialog() != DialogResult.OK) return;
-                    iso = picker.FileName;
-                }
+                media = SelectMedia(pm);
+                if (media == null) return;
             }
 
             if (Process.GetProcessesByName("Mech3fixup").Length != 0)
@@ -46,7 +43,7 @@ internal static class Launcher
                 try { stale.Kill(); stale.WaitForExit(3000); } catch { }
             Thread.Sleep(1500);
 
-            MountIso(iso);
+            if (!pmRip) MountIso(media);
             SetRegistry(gameRoot, pm);
             string exe = Path.Combine(gameRoot, "Mech3fixup.exe");
             if (!File.Exists(exe)) throw new FileNotFoundException("The installed game executable is missing.", exe);
@@ -62,6 +59,20 @@ internal static class Launcher
         catch (Exception ex)
         {
             MessageBox.Show(ex.Message, "MechWarrior 3 Remastered", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private static string SelectMedia(bool pm)
+    {
+        if (pm)
+        {
+            MessageBox.Show("This installation was created from a Pirate's Moon ISO, which is required when launching. RIP ZIP/folder installations do not require their source after setup.", "Locate Pirate's Moon ISO", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        using (OpenFileDialog picker = new OpenFileDialog())
+        {
+            picker.Title = "Locate your " + (pm ? "Pirate's Moon" : "MechWarrior 3") + " ISO";
+            picker.Filter = "Disc images (*.iso)|*.iso|All files (*.*)|*.*";
+            return picker.ShowDialog() == DialogResult.OK ? picker.FileName : null;
         }
     }
 

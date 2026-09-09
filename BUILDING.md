@@ -9,10 +9,11 @@ Required adjacent workspace inputs:
 - locally built ZipperFixup 0.1.2 binaries;
 - the MW3-specific DDrawCompat build and shader;
 - cdaudio-winmm 0.4.0.3 files and the project's headless helper build;
-- redistribution-safe music files; and
+- redistribution-safe music files;
+- maintainer-supplied manual PDFs under the ignored `payload/Manuals` directory; and
 - canonical DDrawCompat and WinMM configuration files.
 
-The build fails if an expected input is missing. It creates a SHA-256 manifest for every embedded file and rejects ISO and `.env` filenames before packaging. Generated payload staging is removed after a successful build.
+The build fails if an expected input is missing. It creates a SHA-256 manifest for every embedded file and rejects ISO and `.env` filenames before packaging. The manual PDFs remain ignored source inputs and are distributed only inside the release EXE. Generated payload staging is removed after a successful build.
 
 `verify.ps1` extracts the embedded payload from the finished setup executable and exercises the InstallShield extraction, official-patch overlay, and ZipperFixup pipeline against the known development media cabinet. It does not install the game or modify system registry/codec state.
 

@@ -8,7 +8,7 @@ This project is not affiliated with or endorsed by MicroProse, Hasbro Interactiv
 
 ### [Download MechWarrior 3 Remastered Setup.exe](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/MechWarrior-3-Remastered-Setup.exe)
 
-**Most people only need the link above.** You supply your own MechWarrior 3 ISO when the installer asks for it. Pirate's Moon is optional.
+**Most people only need the link above.** You supply your own MechWarrior 3 ISO when the installer asks for it. Pirate's Moon is optional and accepts the commonly available RIP ZIP/folder or an original ISO.
 
 1. Download and run the installer.
 2. Point it to your MechWarrior 3 ISO.
@@ -33,7 +33,7 @@ The two values should match exactly.
 
 - Windows 10 or Windows 11 on an x64 PC.
 - A legally obtained US MechWarrior 3 ISO.
-- Optionally, a legally obtained US Pirate's Moon ISO.
+- Optionally, the commonly distributed Pirate's Moon RIP ZIP/extracted folder or a legally obtained US ISO.
 - About 1 GB of free space for MW3, plus additional space if installing Pirate's Moon.
 
 Neither ISO is included, uploaded, or copied into the installed directory.
@@ -42,11 +42,11 @@ Neither ISO is included, uploaded, or copied into the installed directory.
 
 1. Run the setup EXE.
 2. Browse to your MechWarrior 3 ISO.
-3. Optionally select Pirate's Moon and browse to its ISO.
+3. Optionally select Pirate's Moon and browse to its RIP ZIP, extracted RIP folder, or ISO.
 4. Keep the default `Program Files (x86)` destination or choose another empty directory.
 5. Use the installed desktop or Start-menu shortcut.
 
-Keep the ISO files at the paths selected during setup. The launcher mounts the relevant disc before starting the game and prompts again if the file has moved.
+Keep ISO files at the paths selected during setup. The launcher mounts the relevant disc before starting the game and prompts again if it moves. A Pirate's Moon RIP ZIP/folder is only needed during installation.
 
 ## What setup changes
 
@@ -57,13 +57,14 @@ Keep the ISO files at the paths selected during setup. The launcher mounts the r
 - Registers an uninstaller in Windows Apps/Installed apps.
 - Installs the hash-verified Indeo 5 codec from the user's MW3 disc for retail FMV playback.
 - Stores the selected ISO paths locally in `install.cfg`.
+- Installs both original manuals under `Manuals` and links them from the Start menu.
 
 See [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before installing if you want the full details.
 
 ## Known limitations
 
 - The release is not Authenticode-signed, so Windows cannot display a verified publisher.
-- The US MW3 disc path has passed the complete extraction and patching smoke test. Pirate's Moon executable patching has been verified, but a complete expansion ISO was not available for an end-to-end media test.
+- The US MW3 disc path and common Pirate's Moon RIP folder/ZIP path have passed extraction and patching tests. A complete Pirate's Moon ISO was not available for an end-to-end media test.
 - This project does not promise compatibility with other regions or modified disc images.
 
 ## Development

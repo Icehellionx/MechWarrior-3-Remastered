@@ -28,6 +28,7 @@ pirates-moon-original/
 *.snk
 *.key
 *.pem
+payload/Manuals/*.pdf
 
 .vs/
 .vscode/

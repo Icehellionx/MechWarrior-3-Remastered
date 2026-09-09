@@ -54,6 +54,10 @@ Copy-ReleaseFile "$projectRoot\music\2-01. Pirate's Moon - Track 01.mp3" "$paylo
 Copy-ReleaseFile "$projectRoot\music\2-02. Pirate's Moon - Track 02.mp3" "$payloadRoot\music\pm\track03.mp3"
 Copy-ReleaseFile "$projectRoot\music\2-03. Pirate's Moon - Track 03.mp3" "$payloadRoot\music\pm\track04.mp3"
 
+# Original manuals are installed in a clearly named folder and linked from the Start menu.
+Copy-ReleaseFile "$releaseRoot\payload\Manuals\MechWarrior 3 Manual.pdf" "$payloadRoot\Manuals\MechWarrior 3 Manual.pdf"
+Copy-ReleaseFile "$releaseRoot\payload\Manuals\MechWarrior 3 Pirate's Moon Manual.pdf" "$payloadRoot\Manuals\MechWarrior 3 Pirate's Moon Manual.pdf"
+
 # Credits and upstream licensing/readmes are installed alongside the games.
 Copy-ReleaseFile "$releaseRoot\THIRD_PARTY_NOTICES.md" "$payloadRoot\THIRD_PARTY_NOTICES.md"
 Copy-ReleaseFile "$releaseRoot\REDISTRIBUTION.md" "$payloadRoot\REDISTRIBUTION.md"

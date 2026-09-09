@@ -16,6 +16,6 @@ DDrawCompat, ZipperFixup, UnshieldSharp, and cdaudio-winmm remain credited to th
 
 ## Official patch and music
 
-The repository maintainer has represented that the official MechWarrior 3 v1.2 patch may be redistributed and that the bundled music is safe to distribute. Those representations are the basis on which the release builder includes those files; the repository's MIT License does not relicense them.
+The repository maintainer has represented that the official MechWarrior 3 v1.2 patch, bundled music, and original manual PDFs may be redistributed. Those representations are the basis on which the release builder includes those files; the repository's MIT License does not relicense them.
 
 Before any public release, the maintainer should retain the original permission, policy statement, public-domain dedication, or other provenance evidence used for that conclusion. Anyone with a substantiated rights concern should use the repository's private security/contact channel so the relevant release can be reviewed promptly.

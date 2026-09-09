@@ -18,7 +18,7 @@ Create the public repository from this directory and push the committed source. 
 After GitHub CLI authentication, a release can be created with a command shaped like:
 
 ```powershell
-gh release create v1.0.0 .\dist\MechWarrior-3-Remastered-Setup.exe .\dist\SHA256SUMS.txt .\dist\PAYLOAD_MANIFEST.sha256 --title "MechWarrior 3 Remastered v1.0.0" --notes-file .\release-notes.md
+gh release create v1.1.0 .\dist\MechWarrior-3-Remastered-Setup.exe .\dist\SHA256SUMS.txt .\dist\PAYLOAD_MANIFEST.sha256 --title "MechWarrior 3 Remastered v1.1.0" --notes-file .\release-notes-v1.1.0.md
 ```
 
 Never replace assets attached to an existing release. Publish a new version so old checksums remain meaningful.
