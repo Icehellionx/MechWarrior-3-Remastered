@@ -17,8 +17,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("MechWarrior 3 Remastered contributors")]
 [assembly: AssemblyProduct("MechWarrior 3 Remastered")]
 [assembly: AssemblyCopyright("Copyright © 2026 MechWarrior 3 Remastered contributors")]
-[assembly: AssemblyVersion("1.2.0.0")]
-[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyVersion("1.2.1.0")]
+[assembly: AssemblyFileVersion("1.2.1.0")]
 
 internal sealed class InstallerForm : Form
 {
@@ -401,7 +401,7 @@ internal sealed class InstallerForm : Form
         using (RegistryKey hklm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64))
         using (RegistryKey key = hklm.CreateSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MW3Remastered"))
         {
-            key.SetValue("DisplayName", "MechWarrior 3 Remastered"); key.SetValue("DisplayVersion", "1.2.0"); key.SetValue("Publisher", "Community preservation project");
+            key.SetValue("DisplayName", "MechWarrior 3 Remastered"); key.SetValue("DisplayVersion", "1.2.1"); key.SetValue("Publisher", "Community preservation project");
             key.SetValue("InstallLocation", root); key.SetValue("DisplayIcon", Path.Combine(root, "MW3Launcher.exe"));
             key.SetValue("UninstallString", "\"" + Path.Combine(root, "Uninstall.exe") + "\""); key.SetValue("NoModify", 1, RegistryValueKind.DWord); key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
         }

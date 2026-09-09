@@ -5,6 +5,8 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -15,8 +17,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("MechWarrior 3 Remastered contributors")]
 [assembly: AssemblyProduct("MechWarrior 3 Remastered")]
 [assembly: AssemblyCopyright("Copyright © 2026 MechWarrior 3 Remastered contributors")]
-[assembly: AssemblyVersion("1.2.0.0")]
-[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyVersion("1.2.1.0")]
+[assembly: AssemblyFileVersion("1.2.1.0")]
 
 internal sealed class GameRequest
 {
@@ -186,6 +188,21 @@ internal sealed class LauncherForm : Form
 
 internal static class LauncherRuntime
 {
+    private const uint WmClose = 0x0010;
+    private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr window, StringBuilder text, int maximum);
+
+    [DllImport("user32.dll")]
+    private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+
     public static GameRequest Prepare(bool pm)
     {
         string root = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
@@ -225,15 +242,57 @@ internal static class LauncherRuntime
             report(attempt == 1 ? "Launching game..." : "Video initialization failed; retrying (" + attempt + "/" + maxAttempts + ")...");
             DateTime started = DateTime.UtcNow;
             ProcessStartInfo start = new ProcessStartInfo(exe) { WorkingDirectory = request.GameRoot, UseShellExecute = false };
-            using (Process game = Process.Start(start)) game.WaitForExit();
+            bool blockedVideoError;
+            using (Process game = Process.Start(start)) blockedVideoError = WaitForExitAndDismissVideoError(game, started);
             TimeSpan runtime = DateTime.UtcNow - started;
-            bool videoFailure = runtime.TotalSeconds < 20 && HasVideoInitializationFailure(outputPath, started);
+            bool videoFailure = blockedVideoError || (runtime.TotalSeconds < 20 && HasVideoInitializationFailure(outputPath, started));
             KillAudioPlayer();
             if (!videoFailure) return;
             if (attempt == maxAttempts)
                 throw new InvalidOperationException("MechWarrior 3 could not initialize video after four automatic attempts. Close overlays or other 3D applications and try again.");
             Thread.Sleep(2500);
         }
+    }
+
+    private static bool WaitForExitAndDismissVideoError(Process game, DateTime started)
+    {
+        bool found = false;
+        while (!game.WaitForExit(200))
+        {
+            if (!found && (DateTime.UtcNow - started).TotalSeconds <= 30)
+                found = CloseVideoErrorDialog(game.Id);
+            if (found && !game.WaitForExit(5000))
+            {
+                try { game.Kill(); } catch { }
+                game.WaitForExit();
+            }
+            if ((DateTime.UtcNow - started).TotalSeconds > 30 && !found)
+            {
+                game.WaitForExit();
+                break;
+            }
+        }
+        return found;
+    }
+
+    private static bool CloseVideoErrorDialog(int processId)
+    {
+        bool found = false;
+        EnumWindows(delegate(IntPtr window, IntPtr parameter)
+        {
+            uint owner;
+            GetWindowThreadProcessId(window, out owner);
+            if (owner != (uint)processId) return true;
+            StringBuilder title = new StringBuilder(128);
+            GetWindowText(window, title, title.Capacity);
+            if (title.ToString().Equals("Video Error", StringComparison.OrdinalIgnoreCase))
+            {
+                PostMessage(window, WmClose, IntPtr.Zero, IntPtr.Zero);
+                found = true;
+            }
+            return true;
+        }, IntPtr.Zero);
+        return found;
     }
 
     private static bool HasVideoInitializationFailure(string outputPath, DateTime started)
@@ -305,18 +364,27 @@ internal static class LauncherRuntime
         using (RegistryKey hkcu = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Default))
         using (RegistryKey settings = hkcu.CreateSubKey("Software\\MicroProse\\" + product + "\\1.0"))
         {
-            settings.SetValue("HWCardFlag", 1, RegistryValueKind.DWord);
-            settings.SetValue("HWCardDev", 0, RegistryValueKind.DWord);
-            settings.SetValue("InGameVMode", 5, RegistryValueKind.DWord);
-            settings.SetValue("SoundVolume", BitConverter.GetBytes(1.0f), RegistryValueKind.Binary);
-            settings.SetValue("CDVolume", BitConverter.GetBytes(0.10f), RegistryValueKind.Binary);
-            settings.SetValue("TextureMemory_HW", 3, RegistryValueKind.DWord);
-            settings.SetValue("GfxFlags_HW", 0x1f, RegistryValueKind.DWord);
-            settings.SetValue("Shadow", 1, RegistryValueKind.DWord);
-            settings.SetValue("ShadowParts_HW", 1, RegistryValueKind.DWord);
-            settings.SetValue("EffectsLevel_HW", 0, RegistryValueKind.DWord);
-            settings.SetValue("ObjectLOD_HW", 0, RegistryValueKind.DWord);
+            SetIfMissing(settings, "HWCardFlag", 1, RegistryValueKind.DWord);
+            SetIfMissing(settings, "HWCardDev", 0, RegistryValueKind.DWord);
+            SetIfMissing(settings, "InGameVMode", 5, RegistryValueKind.DWord);
+            SetIfMissing(settings, "SoundVolume", BitConverter.GetBytes(1.0f), RegistryValueKind.Binary);
+            SetIfMissing(settings, "TextureMemory_HW", 3, RegistryValueKind.DWord);
+            SetIfMissing(settings, "GfxFlags_HW", 0x1f, RegistryValueKind.DWord);
+            SetIfMissing(settings, "Shadow", 1, RegistryValueKind.DWord);
+            SetIfMissing(settings, "ShadowParts_HW", 1, RegistryValueKind.DWord);
+            SetIfMissing(settings, "EffectsLevel_HW", 0, RegistryValueKind.DWord);
+            SetIfMissing(settings, "ObjectLOD_HW", 0, RegistryValueKind.DWord);
+            if (settings.GetValue("RemasterDefaultsVersion") == null)
+            {
+                settings.SetValue("CDVolume", BitConverter.GetBytes(0.60f), RegistryValueKind.Binary);
+                settings.SetValue("RemasterDefaultsVersion", 1, RegistryValueKind.DWord);
+            }
         }
+    }
+
+    private static void SetIfMissing(RegistryKey key, string name, object value, RegistryValueKind kind)
+    {
+        if (key.GetValue(name) == null) key.SetValue(name, value, kind);
     }
 }
 

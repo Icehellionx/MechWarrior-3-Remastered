@@ -56,6 +56,7 @@ Keep ISO files at the paths selected during setup. The launcher mounts the relev
 - Creates all-user desktop and Start-menu shortcuts.
 - Installs a black-and-red remaster hub for both games and both PDF manuals.
 - Detects the game's intermittent early video-initialization failure and retries automatically up to four times.
+- Starts CD music at 60% on first launch and preserves later in-game volume changes.
 - Registers an uninstaller in Windows Apps/Installed apps.
 - Installs the hash-verified Indeo 5 codec from the user's MW3 disc for retail FMV playback.
 - Stores the selected ISO paths locally in `install.cfg`.
