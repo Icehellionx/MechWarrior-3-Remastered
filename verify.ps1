@@ -32,12 +32,24 @@ try {
 
     $required = @(
         'Mech3.exe', 'Mech3fixup.exe', 'ddraw.dll', 'zipfixup.dll', 'winmm.dll',
+        'mcicda\cdaudioplr.exe',
         'mcicda\music\track02.mp3',
         'common-shaders-master\mw3-remaster\mw3-remaster.cg'
     )
     foreach ($relative in $required) {
         $path = Join-Path $game $relative
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Smoke test output is missing: $relative" }
+    }
+
+    $cdAudioProtocol = 'skipped (another CD audio player is running)'
+    if (-not (Get-Process -Name cdaudioplr -ErrorAction SilentlyContinue)) {
+        $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+        $protocolTest = Join-Path $smoke 'CdAudioProtocolSmoke.exe'
+        & $csc /nologo /target:exe /platform:anycpu /optimize+ "/out:$protocolTest" (Join-Path $releaseRoot 'tests\CdAudioProtocolSmoke.cs')
+        if ($LASTEXITCODE) { throw "CD audio protocol test compilation failed with exit code $LASTEXITCODE." }
+        & $protocolTest (Join-Path $game 'mcicda\cdaudioplr.exe') 3
+        if ($LASTEXITCODE) { throw "CD audio protocol smoke test failed with exit code $LASTEXITCODE." }
+        $cdAudioProtocol = 'passed (3 tracks, shutdown)'
     }
 
     $piratesMoonResult = 'not requested'
@@ -68,6 +80,7 @@ try {
         PayloadFiles = (Get-ChildItem -LiteralPath $payload -Recurse -File).Count
         PatchedExeSHA256 = (Get-FileHash -LiteralPath (Join-Path $game 'Mech3fixup.exe') -Algorithm SHA256).Hash
         ForbiddenFiles = 0
+        CdAudioProtocol = $cdAudioProtocol
         PiratesMoonRip = $piratesMoonResult
     } | Format-List
 }

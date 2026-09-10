@@ -19,9 +19,13 @@ function Copy-ReleaseFile {
     Copy-Item -LiteralPath $Source -Destination $Destination -Force
 }
 
-# Build the small runtime launcher first so it becomes part of the one-file setup payload.
+# Build the small runtime programs first so they become part of the one-file setup payload.
 $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $csc -PathType Leaf)) { throw 'The Windows .NET Framework C# compiler is unavailable.' }
+$cdAudioPlayer = Join-Path $payloadRoot 'compat\cdaudioplr.exe'
+New-Item -ItemType Directory -Path (Split-Path -Parent $cdAudioPlayer) -Force | Out-Null
+& $csc /nologo /target:winexe /platform:x86 /optimize+ "/out:$cdAudioPlayer" "$releaseRoot\src\CdAudioPlayer.cs"
+if ($LASTEXITCODE) { throw "CD audio player compilation failed with exit code $LASTEXITCODE." }
 $launcher = Join-Path $payloadRoot 'MW3Launcher.exe'
 & $csc /nologo /target:winexe /platform:anycpu /optimize+ "/win32manifest:$releaseRoot\src\launcher.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/resource:$releaseRoot\assets\MW3-Game.png,MW3.Game.png" "/resource:$releaseRoot\assets\Pirates-Moon-Game.png,PiratesMoon.Game.png" "/resource:$releaseRoot\assets\MW3-Manual-Cover.png,MW3.ManualCover.png" "/resource:$releaseRoot\assets\Pirates-Moon-Manual-Cover.png,PiratesMoon.ManualCover.png" "/out:$launcher" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "$releaseRoot\src\Launcher.cs"
 if ($LASTEXITCODE) { throw "Launcher compilation failed with exit code $LASTEXITCODE." }
@@ -40,10 +44,9 @@ Copy-ReleaseFile "$projectRoot\tools\ZipperFixup\target\i686-pc-windows-msvc\rel
 Copy-ReleaseFile "$projectRoot\tools\ZipperFixup\target\i686-pc-windows-msvc\release\zippatch.exe" "$payloadRoot\compat\zfapply.exe"
 Copy-ReleaseFile "$projectRoot\tools\DDrawCompat\Release\ddraw.dll" "$payloadRoot\compat\ddraw.dll"
 Copy-ReleaseFile "$projectRoot\tools\releases\cdaudio-winmm-0.4.0.3\package\winmm.dll" "$payloadRoot\compat\winmm.dll"
-Copy-ReleaseFile "$projectRoot\tools\cdaudio-winmm\build\cdaudioplr.exe" "$payloadRoot\compat\cdaudioplr.exe"
 Copy-ReleaseFile "$projectRoot\tools\releases\cdaudio-winmm-0.4.0.3\package\mcicda\cdaudio_vol.ini" "$payloadRoot\compat\cdaudio_vol.ini"
 
-Copy-ReleaseFile "$projectRoot\config\DDrawCompat-remaster.ini" "$payloadRoot\config\DDrawCompat.ini"
+Copy-ReleaseFile "$releaseRoot\config\DDrawCompat.ini" "$payloadRoot\config\DDrawCompat.ini"
 Copy-ReleaseFile "$projectRoot\config\cdaudio-winmm.ini" "$payloadRoot\config\winmm.ini"
 Copy-Item -LiteralPath "$projectRoot\shaders\common-shaders-master\mw3-remaster" -Destination "$payloadRoot\shaders\mw3-remaster" -Recurse
 

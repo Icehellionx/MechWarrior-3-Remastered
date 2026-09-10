@@ -14,6 +14,8 @@ Setup also mounts user-selected ISO media, extracts legacy InstallShield/ZIP con
 
 Setup never asks users to disable antivirus software, SmartScreen, User Account Control, or other Windows security features.
 
+The release does not create Microsoft Defender exclusions. A security-product detection should be reported with the release version, published checksum, and exact detection name; users should not whitelist an unverified download. The CD-audio helper is built from the auditable managed source in `src/CdAudioPlayer.cs`. Music files are passive media and replacing or re-recording them does not change executable malware detections.
+
 ## Reporting a vulnerability
 
 Use GitHub's private vulnerability reporting feature for this repository. If that feature is unavailable, open a minimal issue asking the maintainer for a private contact channel; do not post exploit details, personal paths, or secrets publicly.

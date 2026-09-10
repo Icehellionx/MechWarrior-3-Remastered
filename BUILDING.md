@@ -8,10 +8,10 @@ Required adjacent workspace inputs:
 - the pinned UnshieldSharp executable;
 - locally built ZipperFixup 0.1.2 binaries;
 - the MW3-specific DDrawCompat build and shader;
-- cdaudio-winmm 0.4.0.3 files and the project's headless helper build;
+- cdaudio-winmm 0.4.0.3 wrapper files (the auditable managed helper is built from `src/CdAudioPlayer.cs`);
 - redistribution-safe music files;
 - maintainer-supplied manual PDFs under the ignored `payload/Manuals` directory; and
-- canonical DDrawCompat and WinMM configuration files.
+- the adjacent canonical WinMM configuration file. The DDrawCompat preset is tracked under `config`.
 
 The build fails if an expected input is missing. It creates a SHA-256 manifest for every embedded file and rejects ISO and `.env` filenames before packaging. The manual PDFs remain ignored source inputs and are distributed only inside the release EXE. Generated payload staging is removed after a successful build.
 

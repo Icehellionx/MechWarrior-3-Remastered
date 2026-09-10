@@ -17,8 +17,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("MechWarrior 3 Remastered contributors")]
 [assembly: AssemblyProduct("MechWarrior 3 Remastered")]
 [assembly: AssemblyCopyright("Copyright © 2026 MechWarrior 3 Remastered contributors")]
-[assembly: AssemblyVersion("1.2.1.0")]
-[assembly: AssemblyFileVersion("1.2.1.0")]
+[assembly: AssemblyVersion("1.2.2.0")]
+[assembly: AssemblyFileVersion("1.2.2.0")]
 
 internal sealed class GameRequest
 {
@@ -189,6 +189,9 @@ internal sealed class LauncherForm : Form
 internal static class LauncherRuntime
 {
     private const uint WmClose = 0x0010;
+    private static readonly string DiagnosticDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MechWarrior 3 Remastered");
+    private static readonly string DiagnosticLog = Path.Combine(DiagnosticDirectory, "launcher.log");
     private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
 
     [DllImport("user32.dll")]
@@ -227,6 +230,8 @@ internal static class LauncherRuntime
             throw new InvalidOperationException("Close the running MechWarrior game before starting another title.");
 
         report("Preparing " + (request.PiratesMoon ? "Pirate's Moon" : "MechWarrior 3") + "...");
+        Log("Launch requested for " + (request.PiratesMoon ? "Pirate's Moon" : "MechWarrior 3") +
+            "; OS=" + Environment.OSVersion.VersionString + "; 64-bit OS=" + Environment.Is64BitOperatingSystem + ".");
         KillAudioPlayer();
         Thread.Sleep(2000);
         if (!request.UsesRip) MountIso(request.Media);
@@ -234,6 +239,11 @@ internal static class LauncherRuntime
 
         string exe = Path.Combine(request.GameRoot, "Mech3fixup.exe");
         if (!File.Exists(exe)) throw new FileNotFoundException("The installed game executable is missing.", exe);
+        string ddraw = Path.Combine(request.GameRoot, "ddraw.dll");
+        if (!File.Exists(ddraw)) throw new FileNotFoundException("The DDrawCompat graphics wrapper is missing. Reinstall MechWarrior 3 Remastered.", ddraw);
+        string audioPlayer = Path.Combine(request.GameRoot, "mcicda", "cdaudioplr.exe");
+        Log("Compatibility files: ddraw=" + FileVersion(ddraw) + "; CD audio helper=" +
+            (File.Exists(audioPlayer) ? FileVersion(audioPlayer) : "missing or quarantined") + ".");
         string outputPath = Path.Combine(request.GameRoot, "mech3.out");
         const int maxAttempts = 4;
         for (int attempt = 1; attempt <= maxAttempts; attempt++)
@@ -243,14 +253,34 @@ internal static class LauncherRuntime
             DateTime started = DateTime.UtcNow;
             ProcessStartInfo start = new ProcessStartInfo(exe) { WorkingDirectory = request.GameRoot, UseShellExecute = false };
             bool blockedVideoError;
-            using (Process game = Process.Start(start)) blockedVideoError = WaitForExitAndDismissVideoError(game, started);
+            int exitCode = -1;
+            using (Process game = Process.Start(start))
+            {
+                blockedVideoError = WaitForExitAndDismissVideoError(game, started);
+                try { exitCode = game.ExitCode; } catch { }
+            }
             TimeSpan runtime = DateTime.UtcNow - started;
             bool videoFailure = blockedVideoError || (runtime.TotalSeconds < 20 && HasVideoInitializationFailure(outputPath, started));
             KillAudioPlayer();
-            if (!videoFailure) return;
+            Log("Attempt " + attempt + " exited with code " + exitCode + " after " +
+                runtime.TotalSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) +
+                " seconds; video dialog=" + blockedVideoError + "; classified video failure=" + videoFailure + ".");
+            if (!videoFailure)
+            {
+                if (!File.Exists(audioPlayer)) Log("Warning: CD audio helper is unavailable; gameplay can continue without music.");
+                return;
+            }
             if (attempt == maxAttempts)
-                throw new InvalidOperationException("MechWarrior 3 could not initialize video after four automatic attempts. Close overlays or other 3D applications and try again.");
-            Thread.Sleep(2500);
+                throw new InvalidOperationException("MechWarrior 3 could not initialize video after four recovery attempts. " +
+                    "The launcher restored the tested renderer settings between attempts. Please attach the newest mech3.out and " +
+                    "DDrawCompat-Mech3fixup.log files plus " + DiagnosticLog + " to a bug report.");
+
+            // A failed first-second D3DIM startup can leave the game's selected
+            // adapter/mode values changed. Re-applying the tested renderer state
+            // makes the next attempt a real recovery instead of an identical retry
+            // with settings poisoned by the previous failure.
+            ResetVideoSettings(request.PiratesMoon);
+            Thread.Sleep(4000);
         }
     }
 
@@ -311,6 +341,26 @@ internal static class LauncherRuntime
             try { stale.Kill(); stale.WaitForExit(3000); } catch { }
     }
 
+    private static string FileVersion(string path)
+    {
+        try
+        {
+            FileVersionInfo version = FileVersionInfo.GetVersionInfo(path);
+            return String.IsNullOrEmpty(version.FileVersion) ? "unversioned" : version.FileVersion;
+        }
+        catch { return "unreadable"; }
+    }
+
+    private static void Log(string message)
+    {
+        try
+        {
+            Directory.CreateDirectory(DiagnosticDirectory);
+            File.AppendAllText(DiagnosticLog, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + " " + message + Environment.NewLine);
+        }
+        catch { }
+    }
+
     private static string SelectMedia(bool pm)
     {
         if (pm)
@@ -364,9 +414,11 @@ internal static class LauncherRuntime
         using (RegistryKey hkcu = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Default))
         using (RegistryKey settings = hkcu.CreateSubKey("Software\\MicroProse\\" + product + "\\1.0"))
         {
-            SetIfMissing(settings, "HWCardFlag", 1, RegistryValueKind.DWord);
-            SetIfMissing(settings, "HWCardDev", 0, RegistryValueKind.DWord);
-            SetIfMissing(settings, "InGameVMode", 5, RegistryValueKind.DWord);
+            // These three values identify the tested HAL, primary adapter and
+            // 1024x768 mode. They are boot prerequisites, not player preferences.
+            settings.SetValue("HWCardFlag", 1, RegistryValueKind.DWord);
+            settings.SetValue("HWCardDev", 0, RegistryValueKind.DWord);
+            settings.SetValue("InGameVMode", 5, RegistryValueKind.DWord);
             SetIfMissing(settings, "SoundVolume", BitConverter.GetBytes(1.0f), RegistryValueKind.Binary);
             SetIfMissing(settings, "TextureMemory_HW", 3, RegistryValueKind.DWord);
             SetIfMissing(settings, "GfxFlags_HW", 0x1f, RegistryValueKind.DWord);
@@ -380,6 +432,19 @@ internal static class LauncherRuntime
                 settings.SetValue("RemasterDefaultsVersion", 1, RegistryValueKind.DWord);
             }
         }
+    }
+
+    private static void ResetVideoSettings(bool pm)
+    {
+        string product = pm ? "MechWarrior 3 EP1" : "MechWarrior 3";
+        using (RegistryKey hkcu = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Default))
+        using (RegistryKey settings = hkcu.CreateSubKey("Software\\MicroProse\\" + product + "\\1.0"))
+        {
+            settings.SetValue("HWCardFlag", 1, RegistryValueKind.DWord);
+            settings.SetValue("HWCardDev", 0, RegistryValueKind.DWord);
+            settings.SetValue("InGameVMode", 5, RegistryValueKind.DWord);
+        }
+        Log("Restored tested Direct3D HAL, primary-adapter and 1024x768 startup values before retry.");
     }
 
     private static void SetIfMissing(RegistryKey key, string name, object value, RegistryValueKind kind)
