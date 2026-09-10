@@ -6,7 +6,9 @@ This project is not affiliated with or endorsed by MicroProse, Hasbro Interactiv
 
 ## ⬇️ Download the installer
 
-### [Download MechWarrior 3 Remastered Setup.exe](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/MechWarrior-3-Remastered-Setup.exe)
+### [Download MechWarrior 3 Remastered v1.2.3 Setup.exe](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/MechWarrior-3-Remastered-Setup.exe)
+
+Current release: [v1.2.3](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/tag/v1.2.3)
 
 **Most people only need the link above.** You supply your own MechWarrior 3 ISO when the installer asks for it. Pirate's Moon is optional and accepts the commonly available RIP ZIP/folder or an original ISO.
 
@@ -61,6 +63,7 @@ Keep ISO files at the paths selected during setup. The launcher mounts the relev
 - Registers an uninstaller in Windows Apps/Installed apps.
 - Installs the hash-verified Indeo 5 codec from the user's MW3 disc for retail FMV playback.
 - Stores the selected ISO paths locally in `install.cfg`.
+- Waits for each mounted ISO to receive a drive letter and become readable before starting the game.
 - Installs both original manuals under `Manuals`, links them from the launcher, and also links them from the Start menu.
 
 See [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before installing if you want the full details.

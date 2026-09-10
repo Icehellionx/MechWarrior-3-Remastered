@@ -17,8 +17,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("MechWarrior 3 Remastered contributors")]
 [assembly: AssemblyProduct("MechWarrior 3 Remastered")]
 [assembly: AssemblyCopyright("Copyright © 2026 MechWarrior 3 Remastered contributors")]
-[assembly: AssemblyVersion("1.2.2.0")]
-[assembly: AssemblyFileVersion("1.2.2.0")]
+[assembly: AssemblyVersion("1.2.3.0")]
+[assembly: AssemblyFileVersion("1.2.3.0")]
 
 internal sealed class GameRequest
 {
@@ -234,7 +234,11 @@ internal static class LauncherRuntime
             "; OS=" + Environment.OSVersion.VersionString + "; 64-bit OS=" + Environment.Is64BitOperatingSystem + ".");
         KillAudioPlayer();
         Thread.Sleep(2000);
-        if (!request.UsesRip) MountIso(request.Media);
+        if (!request.UsesRip)
+        {
+            report("Mounting and verifying disc image...");
+            MountIso(request.Media);
+        }
         SetRegistry(request.GameRoot, request.PiratesMoon);
 
         string exe = Path.Combine(request.GameRoot, "Mech3fixup.exe");
@@ -388,14 +392,47 @@ internal static class LauncherRuntime
     private static void MountIso(string iso)
     {
         string escaped = iso.Replace("'", "''");
-        string command = "$ErrorActionPreference='Stop'; $p='" + escaped + "'; $i=Get-DiskImage -ImagePath $p -ErrorAction SilentlyContinue; if(-not $i -or -not $i.Attached){Mount-DiskImage -ImagePath $p | Out-Null}";
-        ProcessStartInfo info = new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Command \"" + command.Replace("\"", "\\\"") + "\"");
+        string command = "$ErrorActionPreference='Stop'; $p='" + escaped + "'; " +
+            "$i=Get-DiskImage -ImagePath $p -ErrorAction SilentlyContinue; " +
+            "if(-not $i -or -not $i.Attached){Mount-DiskImage -ImagePath $p | Out-Null}; " +
+            "$deadline=[DateTime]::UtcNow.AddSeconds(30); " +
+            "do{$i=Get-DiskImage -ImagePath $p -ErrorAction SilentlyContinue; " +
+            "$volumes=@($i | Get-Volume -ErrorAction SilentlyContinue | Where-Object {$_.DriveLetter}); " +
+            "foreach($volume in $volumes){$root=([string]$volume.DriveLetter)+':\\'; " +
+            "if(Test-Path -LiteralPath $root -PathType Container){" +
+            "Write-Output ('READY|'+$root+'|'+[string]$volume.FileSystemLabel); exit 0}}; " +
+            "Start-Sleep -Milliseconds 250}while([DateTime]::UtcNow -lt $deadline); exit 2";
+        // EncodedCommand avoids Windows command-line quoting changing paths or
+        // PowerShell syntax before the child process receives this script.
+        string encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(command));
+        ProcessStartInfo info = new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -EncodedCommand " + encodedCommand);
         info.UseShellExecute = false;
         info.CreateNoWindow = true;
+        info.RedirectStandardOutput = true;
+        info.RedirectStandardError = true;
         using (Process process = Process.Start(info))
         {
+            StringBuilder errors = new StringBuilder();
+            process.ErrorDataReceived += delegate(object sender, DataReceivedEventArgs args)
+            {
+                if (!String.IsNullOrEmpty(args.Data)) errors.AppendLine(args.Data);
+            };
+            process.BeginErrorReadLine();
+            string output = process.StandardOutput.ReadToEnd().Trim();
             process.WaitForExit();
-            if (process.ExitCode != 0) throw new InvalidOperationException("Windows could not mount the selected ISO. Right-click the ISO, choose Mount, then try again.");
+            // A second wait ensures asynchronous stderr handlers have drained.
+            process.WaitForExit();
+            string error = errors.ToString().Trim();
+            if (process.ExitCode == 0)
+            {
+                Log("Disc image is mounted and readable: " + (String.IsNullOrEmpty(output) ? "volume ready" : output) + ".");
+                return;
+            }
+            Log("Disc image readiness failed with exit code " + process.ExitCode +
+                (String.IsNullOrEmpty(error) ? "." : ": " + error.Replace(iso, "<selected ISO>")));
+            if (process.ExitCode == 2)
+                throw new InvalidOperationException("Windows attached the selected ISO, but its disc drive did not become readable within 30 seconds. Eject the mounted image, right-click the ISO, choose Mount, and try again.");
+            throw new InvalidOperationException("Windows could not mount the selected ISO. Right-click the ISO, choose Mount, then try again.");
         }
     }
 
