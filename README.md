@@ -10,7 +10,13 @@ This project is not affiliated with or endorsed by MicroProse, Hasbro Interactiv
 
 Current release: [v1.2.4](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/tag/v1.2.4)
 
-**Most people only need the link above.** You supply your own MechWarrior 3 ISO when the installer asks for it. Pirate's Moon is optional and accepts the commonly available RIP ZIP/folder or an original ISO.
+Renderer source and standalone package:
+[DDrawCompat-MW3](https://github.com/Icehellionx/DDrawCompat-MW3). This is the
+public MW3-specific fork used by the remaster for graphics compatibility,
+including 32-bit render-color-depth promotion and the Pirate's Moon startup
+surface recovery.
+
+**Most people only need the installer link above.** You supply your own MechWarrior 3 ISO when the installer asks for it. Pirate's Moon is optional and accepts the commonly available RIP ZIP/folder or an original ISO.
 
 1. Download and run the installer.
 2. Point it to your MechWarrior 3 ISO.
