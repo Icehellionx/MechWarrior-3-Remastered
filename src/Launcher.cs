@@ -17,8 +17,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("MechWarrior 3 Remastered contributors")]
 [assembly: AssemblyProduct("MechWarrior 3 Remastered")]
 [assembly: AssemblyCopyright("Copyright © 2026 MechWarrior 3 Remastered contributors")]
-[assembly: AssemblyVersion("1.2.3.0")]
-[assembly: AssemblyFileVersion("1.2.3.0")]
+[assembly: AssemblyVersion("1.2.4.0")]
+[assembly: AssemblyFileVersion("1.2.4.0")]
 
 internal sealed class GameRequest
 {
@@ -226,18 +226,30 @@ internal static class LauncherRuntime
 
     public static void Run(GameRequest request, Action<string> report)
     {
-        if (Process.GetProcessesByName("Mech3fixup").Length != 0)
+        using (LaunchLease lease = LaunchLease.Acquire(DiagnosticDirectory))
+        {
+            RunCore(request, report);
+        }
+    }
+
+    private static void RunCore(GameRequest request, Action<string> report)
+    {
+        if (InstalledProcessScope.HasRunningGame(request.GameRoot))
             throw new InvalidOperationException("Close the running MechWarrior game before starting another title.");
 
+        IsoMountSession mediaMount = null;
+        try
+        {
         report("Preparing " + (request.PiratesMoon ? "Pirate's Moon" : "MechWarrior 3") + "...");
         Log("Launch requested for " + (request.PiratesMoon ? "Pirate's Moon" : "MechWarrior 3") +
+            "; launcher=" + Assembly.GetExecutingAssembly().GetName().Version +
             "; OS=" + Environment.OSVersion.VersionString + "; 64-bit OS=" + Environment.Is64BitOperatingSystem + ".");
-        KillAudioPlayer();
+        InstalledProcessScope.StopAudioPlayers(request.GameRoot, Log);
         Thread.Sleep(2000);
         if (!request.UsesRip)
         {
             report("Mounting and verifying disc image...");
-            MountIso(request.Media);
+            mediaMount = IsoMountSession.Attach(request.Media, Log);
         }
         SetRegistry(request.GameRoot, request.PiratesMoon);
 
@@ -249,43 +261,90 @@ internal static class LauncherRuntime
         Log("Compatibility files: ddraw=" + FileVersion(ddraw) + "; CD audio helper=" +
             (File.Exists(audioPlayer) ? FileVersion(audioPlayer) : "missing or quarantined") + ".");
         string outputPath = Path.Combine(request.GameRoot, "mech3.out");
-        const int maxAttempts = 4;
-        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        string ddrawLogPath = Path.Combine(request.GameRoot, "DDrawCompat-Mech3fixup.log");
+        string processConfigPath = Path.Combine(request.GameRoot, "DDrawCompat-Mech3fixup.ini");
+        string launchId = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture);
+        const int maxAttempts = 5;
+        using (VideoRecoveryConfig recoveryConfig = new VideoRecoveryConfig(processConfigPath, Log))
         {
-            try { if (File.Exists(outputPath)) File.Delete(outputPath); } catch { }
-            report(attempt == 1 ? "Launching game..." : "Video initialization failed; retrying (" + attempt + "/" + maxAttempts + ")...");
-            DateTime started = DateTime.UtcNow;
-            ProcessStartInfo start = new ProcessStartInfo(exe) { WorkingDirectory = request.GameRoot, UseShellExecute = false };
-            bool blockedVideoError;
-            int exitCode = -1;
-            using (Process game = Process.Start(start))
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                blockedVideoError = WaitForExitAndDismissVideoError(game, started);
-                try { exitCode = game.ExitCode; } catch { }
-            }
-            TimeSpan runtime = DateTime.UtcNow - started;
-            bool videoFailure = blockedVideoError || (runtime.TotalSeconds < 20 && HasVideoInitializationFailure(outputPath, started));
-            KillAudioPlayer();
-            Log("Attempt " + attempt + " exited with code " + exitCode + " after " +
-                runtime.TotalSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) +
-                " seconds; video dialog=" + blockedVideoError + "; classified video failure=" + videoFailure + ".");
-            if (!videoFailure)
-            {
-                if (!File.Exists(audioPlayer)) Log("Warning: CD audio helper is unavailable; gameplay can continue without music.");
-                return;
-            }
-            if (attempt == maxAttempts)
-                throw new InvalidOperationException("MechWarrior 3 could not initialize video after four recovery attempts. " +
-                    "The launcher restored the tested renderer settings between attempts. Please attach the newest mech3.out and " +
-                    "DDrawCompat-Mech3fixup.log files plus " + DiagnosticLog + " to a bug report.");
+                string recoveryProfile = recoveryConfig.Apply(attempt);
+                try { if (File.Exists(outputPath)) File.Delete(outputPath); } catch { }
+                report(attempt == 1 ? "Launching game..." :
+                    "Video initialization failed; trying " + recoveryProfile + " (" + attempt + "/" + maxAttempts + ")...");
+                DateTime started = DateTime.UtcNow;
+                ProcessStartInfo start = new ProcessStartInfo(exe) { WorkingDirectory = request.GameRoot, UseShellExecute = false };
+                bool blockedVideoError;
+                int exitCode = -1;
+                using (Process game = Process.Start(start))
+                {
+                    blockedVideoError = WaitForExitAndDismissVideoError(game, started);
+                    try { exitCode = game.ExitCode; } catch { }
+                }
+                TimeSpan runtime = DateTime.UtcNow - started;
+                bool abnormalEarlyExit = LaunchResultClassifier.IsEarlyAbnormalExit(exitCode, runtime);
+                bool videoFailure = blockedVideoError || abnormalEarlyExit ||
+                    (runtime.TotalSeconds < 20 && HasVideoInitializationFailure(outputPath, started));
+                InstalledProcessScope.StopAudioPlayers(request.GameRoot, Log);
+                ArchiveAttemptLogs(request, launchId, attempt, outputPath, ddrawLogPath, started);
+                Log("Attempt " + attempt + " [" + recoveryProfile + "] exited with code " + exitCode + " after " +
+                    runtime.TotalSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) +
+                    " seconds; video dialog=" + blockedVideoError + "; early abnormal exit=" + abnormalEarlyExit +
+                    "; classified video failure=" + videoFailure + ".");
+                if (!videoFailure)
+                {
+                    if (attempt > 1) Log("Video initialization recovered with profile: " + recoveryProfile + ".");
+                    if (!File.Exists(audioPlayer)) Log("Warning: CD audio helper is unavailable; gameplay can continue without music.");
+                    return;
+                }
+                if (attempt == maxAttempts)
+                    throw new InvalidOperationException("MechWarrior 3 could not initialize video after five recovery profiles. " +
+                        "Per-attempt diagnostics were saved under " + Path.Combine(DiagnosticDirectory, "attempts", launchId) +
+                        ". Please attach that folder plus " + DiagnosticLog + " to a bug report.");
 
-            // A failed first-second D3DIM startup can leave the game's selected
-            // adapter/mode values changed. Re-applying the tested renderer state
-            // makes the next attempt a real recovery instead of an identical retry
-            // with settings poisoned by the previous failure.
-            ResetVideoSettings(request.PiratesMoon);
-            Thread.Sleep(4000);
+                // A failed first-second D3DIM startup can leave the game's selected
+                // adapter/mode values changed. Re-applying the tested renderer state
+                // makes the next attempt a real recovery instead of using settings
+                // poisoned by the previous failure.
+                ResetVideoSettings(request.PiratesMoon);
+                Thread.Sleep(4000);
+            }
         }
+        }
+        finally
+        {
+            InstalledProcessScope.StopAudioPlayers(request.GameRoot, Log);
+            if (mediaMount != null)
+            {
+                report(mediaMount.OwnsMount ? "Ejecting disc image..." : "Leaving pre-existing disc image mounted...");
+                mediaMount.Dispose();
+            }
+        }
+    }
+
+    private static void ArchiveAttemptLogs(GameRequest request, string launchId, int attempt,
+        string outputPath, string ddrawLogPath, DateTime started)
+    {
+        try
+        {
+            string archive = Path.Combine(DiagnosticDirectory, "attempts", launchId);
+            Directory.CreateDirectory(archive);
+            string prefix = request.PiratesMoon ? "pm" : "mw3";
+            ArchiveFreshFile(outputPath, Path.Combine(archive, prefix + "-attempt-" + attempt + ".out"), started);
+            ArchiveFreshFile(ddrawLogPath, Path.Combine(archive, "DDrawCompat-" + prefix + "-attempt-" + attempt + ".log"), started);
+            Log("Attempt " + attempt + " diagnostics archived under " + archive + ".");
+        }
+        catch (Exception ex)
+        {
+            Log("Warning: could not archive attempt " + attempt + " diagnostics: " + ex.Message);
+        }
+    }
+
+    private static void ArchiveFreshFile(string source, string destination, DateTime started)
+    {
+        if (File.Exists(source) && File.GetLastWriteTimeUtc(source) >= started.AddSeconds(-1))
+            File.Copy(source, destination, true);
     }
 
     private static bool WaitForExitAndDismissVideoError(Process game, DateTime started)
@@ -339,12 +398,6 @@ internal static class LauncherRuntime
         catch { return false; }
     }
 
-    private static void KillAudioPlayer()
-    {
-        foreach (Process stale in Process.GetProcessesByName("cdaudioplr"))
-            try { stale.Kill(); stale.WaitForExit(3000); } catch { }
-    }
-
     private static string FileVersion(string path)
     {
         try
@@ -387,53 +440,6 @@ internal static class LauncherRuntime
             if (split > 0) values[line.Substring(0, split)] = line.Substring(split + 1);
         }
         return values;
-    }
-
-    private static void MountIso(string iso)
-    {
-        string escaped = iso.Replace("'", "''");
-        string command = "$ErrorActionPreference='Stop'; $p='" + escaped + "'; " +
-            "$i=Get-DiskImage -ImagePath $p -ErrorAction SilentlyContinue; " +
-            "if(-not $i -or -not $i.Attached){Mount-DiskImage -ImagePath $p | Out-Null}; " +
-            "$deadline=[DateTime]::UtcNow.AddSeconds(30); " +
-            "do{$i=Get-DiskImage -ImagePath $p -ErrorAction SilentlyContinue; " +
-            "$volumes=@($i | Get-Volume -ErrorAction SilentlyContinue | Where-Object {$_.DriveLetter}); " +
-            "foreach($volume in $volumes){$root=([string]$volume.DriveLetter)+':\\'; " +
-            "if(Test-Path -LiteralPath $root -PathType Container){" +
-            "Write-Output ('READY|'+$root+'|'+[string]$volume.FileSystemLabel); exit 0}}; " +
-            "Start-Sleep -Milliseconds 250}while([DateTime]::UtcNow -lt $deadline); exit 2";
-        // EncodedCommand avoids Windows command-line quoting changing paths or
-        // PowerShell syntax before the child process receives this script.
-        string encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(command));
-        ProcessStartInfo info = new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -EncodedCommand " + encodedCommand);
-        info.UseShellExecute = false;
-        info.CreateNoWindow = true;
-        info.RedirectStandardOutput = true;
-        info.RedirectStandardError = true;
-        using (Process process = Process.Start(info))
-        {
-            StringBuilder errors = new StringBuilder();
-            process.ErrorDataReceived += delegate(object sender, DataReceivedEventArgs args)
-            {
-                if (!String.IsNullOrEmpty(args.Data)) errors.AppendLine(args.Data);
-            };
-            process.BeginErrorReadLine();
-            string output = process.StandardOutput.ReadToEnd().Trim();
-            process.WaitForExit();
-            // A second wait ensures asynchronous stderr handlers have drained.
-            process.WaitForExit();
-            string error = errors.ToString().Trim();
-            if (process.ExitCode == 0)
-            {
-                Log("Disc image is mounted and readable: " + (String.IsNullOrEmpty(output) ? "volume ready" : output) + ".");
-                return;
-            }
-            Log("Disc image readiness failed with exit code " + process.ExitCode +
-                (String.IsNullOrEmpty(error) ? "." : ": " + error.Replace(iso, "<selected ISO>")));
-            if (process.ExitCode == 2)
-                throw new InvalidOperationException("Windows attached the selected ISO, but its disc drive did not become readable within 30 seconds. Eject the mounted image, right-click the ISO, choose Mount, and try again.");
-            throw new InvalidOperationException("Windows could not mount the selected ISO. Right-click the ISO, choose Mount, then try again.");
-        }
     }
 
     private static void SetRegistry(string gameRoot, bool pm)

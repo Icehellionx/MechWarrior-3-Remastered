@@ -2,6 +2,7 @@
 // The wrapper/protocol design is credited to dippy-dipper/DD and contributors;
 // this managed implementation is project code under the repository's MIT license.
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -22,6 +23,9 @@ internal static class CdAudioPlayer
     private const uint OpenExisting = 3;
     private const uint FileAttributeNormal = 0x00000080;
     private const uint MailslotWaitForever = 0xffffffff;
+    private const uint SnapshotProcesses = 0x00000002;
+    private const uint Synchronize = 0x00100000;
+    private const uint WaitObject0 = 0;
     private const string PlayerSlot = @"\\.\Mailslot\cdaudioplr_Mailslot";
     private const string WrapperSlot = @"\\.\Mailslot\winmm_Mailslot";
     private const string Alias = "mw3track";
@@ -55,6 +59,40 @@ internal static class CdAudioPlayer
     [DllImport("kernel32.dll")]
     private static extern bool CloseHandle(IntPtr handle);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint processId);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool Process32First(IntPtr snapshot, ref ProcessEntry entry);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool Process32Next(IntPtr snapshot, ref ProcessEntry entry);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentProcessId();
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(uint desiredAccess, bool inheritHandle, uint processId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern uint WaitForSingleObject(IntPtr handle, uint milliseconds);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct ProcessEntry
+    {
+        public uint Size;
+        public uint Usage;
+        public uint ProcessId;
+        public IntPtr DefaultHeapId;
+        public uint ModuleId;
+        public uint Threads;
+        public uint ParentProcessId;
+        public int PriorityBase;
+        public uint Flags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+        public string ExeFile;
+    }
+
     [DllImport("winmm.dll", CharSet = CharSet.Unicode)]
     private static extern uint mciSendString(string command, StringBuilder result, uint resultLength, IntPtr callback);
 
@@ -74,6 +112,11 @@ internal static class CdAudioPlayer
             LoadVolumeOverride(root);
             ApplyVolume();
 
+            Thread parentWatcher = new Thread(WatchParentProcess);
+            parentWatcher.IsBackground = true;
+            parentWatcher.Name = "CD audio parent-process watcher";
+            parentWatcher.Start();
+
             Thread reader = new Thread(ReadCommands);
             reader.IsBackground = true;
             reader.Name = "CD audio command reader";
@@ -82,6 +125,50 @@ internal static class CdAudioPlayer
             RunPlayer();
             CloseTrack();
         }
+    }
+
+    private static void WatchParentProcess()
+    {
+        uint parentProcessId = GetParentProcessId();
+        if (parentProcessId == 0)
+        {
+            // The launching process already disappeared before the helper could
+            // snapshot it. There is no valid game session to keep alive for.
+            quitting = true;
+            return;
+        }
+
+        IntPtr parent = OpenProcess(Synchronize, false, parentProcessId);
+        if (parent == IntPtr.Zero)
+        {
+            quitting = true;
+            return;
+        }
+        try
+        {
+            if (WaitForSingleObject(parent, MailslotWaitForever) == WaitObject0) quitting = true;
+        }
+        finally { CloseHandle(parent); }
+    }
+
+    private static uint GetParentProcessId()
+    {
+        IntPtr snapshot = CreateToolhelp32Snapshot(SnapshotProcesses, 0);
+        if (snapshot == InvalidHandle) return 0;
+        try
+        {
+            ProcessEntry entry = new ProcessEntry();
+            entry.Size = (uint)Marshal.SizeOf(typeof(ProcessEntry));
+            uint currentProcessId = GetCurrentProcessId();
+            if (!Process32First(snapshot, ref entry)) return 0;
+            do
+            {
+                if (entry.ProcessId == currentProcessId) return entry.ParentProcessId;
+            }
+            while (Process32Next(snapshot, ref entry));
+            return 0;
+        }
+        finally { CloseHandle(snapshot); }
     }
 
     private static void LoadTracks()

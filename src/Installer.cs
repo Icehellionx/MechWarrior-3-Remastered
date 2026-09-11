@@ -17,8 +17,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("MechWarrior 3 Remastered contributors")]
 [assembly: AssemblyProduct("MechWarrior 3 Remastered")]
 [assembly: AssemblyCopyright("Copyright © 2026 MechWarrior 3 Remastered contributors")]
-[assembly: AssemblyVersion("1.2.3.0")]
-[assembly: AssemblyFileVersion("1.2.3.0")]
+[assembly: AssemblyVersion("1.2.4.0")]
+[assembly: AssemblyFileVersion("1.2.4.0")]
 
 internal sealed class InstallerForm : Form
 {
@@ -56,7 +56,10 @@ internal sealed class InstallerForm : Form
         pmMedia.Enabled = false; Controls["browsePm"].Enabled = false;
 
         AddPicker("Install location", destination, 243, PickDestination);
-        destination.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "MechWarrior 3 Remastered");
+        // The game, DDrawCompat and launcher recovery all maintain runtime state
+        // beside the installed game. A per-user program directory preserves that
+        // legacy contract without UAC prompts or writable system-wide binaries.
+        destination.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "MechWarrior 3 Remastered");
 
         progress.Location = new Point(25, 301); progress.Size = new Size(580, 20); progress.Style = ProgressBarStyle.Marquee; progress.Visible = false;
         status.Location = new Point(25, 327); status.Size = new Size(580, 25);
@@ -146,10 +149,12 @@ internal sealed class InstallerForm : Form
             ExtractPayload(payloadRoot);
 
             SetStatus("Extracting MechWarrior 3 from your ISO...");
-            string mw3Drive = MountAndGetRoot(mw3Iso.Text);
             string mw3Root = Path.Combine(stageRoot, "MechWarrior 3");
-            ExtractGame(mw3Drive, mw3Root, Path.Combine(payloadRoot, "tools", "UnshieldSharp.exe"));
-            CopyVideo(mw3Drive, mw3Root);
+            using (IsoMountSession mw3Media = IsoMountSession.Attach(mw3Iso.Text, SetStatus))
+            {
+                ExtractGame(mw3Media.Root, mw3Root, Path.Combine(payloadRoot, "tools", "UnshieldSharp.exe"));
+                CopyVideo(mw3Media.Root, mw3Root);
+            }
 
             SetStatus("Applying the official 1.2 patch...");
             ApplyPatch12(Path.Combine(payloadRoot, "patch12"), mw3Root);
@@ -176,9 +181,11 @@ internal sealed class InstallerForm : Form
                 }
                 else
                 {
-                    string pmDrive = MountAndGetRoot(pmMedia.Text);
-                    ExtractGame(pmDrive, pmRoot, Path.Combine(payloadRoot, "tools", "UnshieldSharp.exe"));
-                    CopyVideo(pmDrive, pmRoot);
+                    using (IsoMountSession pmDisc = IsoMountSession.Attach(pmMedia.Text, SetStatus))
+                    {
+                        ExtractGame(pmDisc.Root, pmRoot, Path.Combine(payloadRoot, "tools", "UnshieldSharp.exe"));
+                        CopyVideo(pmDisc.Root, pmRoot);
+                    }
                 }
                 string pmExe = Path.Combine(pmRoot, "Mech3.exe");
                 string expectedPmHash = pmFromRip ? "B28ECB70A6A5AFC01074C0ED32BFDABBD189EB3630CB2CDC528107CE67CAEA0E" : "F2B2BFFE513DD3FE252BF435BAB40A0526809DEB901083806F87EF225192A821";
@@ -220,22 +227,6 @@ internal sealed class InstallerForm : Form
             using (FileStream output = File.Create(archive)) resource.CopyTo(output);
             ZipFile.ExtractToDirectory(archive, destination);
             File.Delete(archive);
-        }
-    }
-
-    private static string MountAndGetRoot(string iso)
-    {
-        string escaped = Path.GetFullPath(iso).Replace("'", "''");
-        string script = "$ErrorActionPreference='Stop';$p='" + escaped + "';$i=Get-DiskImage -ImagePath $p -ErrorAction SilentlyContinue;if(-not $i -or -not $i.Attached){$i=Mount-DiskImage -ImagePath $p -PassThru}else{$i=Get-DiskImage -ImagePath $p};$v=$i|Get-Volume;Write-Output ($v.DriveLetter+':\\')";
-        ProcessStartInfo info = new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Command \"" + script.Replace("\"", "\\\"") + "\"");
-        info.UseShellExecute = false; info.CreateNoWindow = true; info.RedirectStandardOutput = true; info.RedirectStandardError = true;
-        using (Process process = Process.Start(info))
-        {
-            string output = process.StandardOutput.ReadToEnd(); string error = process.StandardError.ReadToEnd(); process.WaitForExit();
-            if (process.ExitCode != 0) throw new InvalidOperationException("Could not mount ISO: " + error.Trim());
-            string root = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
-            if (String.IsNullOrEmpty(root) || !Directory.Exists(root)) throw new InvalidOperationException("The ISO mounted, but its drive could not be located.");
-            return root.Trim();
         }
     }
 
@@ -336,7 +327,9 @@ internal sealed class InstallerForm : Form
         File.Copy(Path.Combine(compat, "zipfixup.dll"), Path.Combine(gameRoot, "zipfixup.dll"), true);
         File.Copy(Path.Combine(compat, "zfapply.exe"), Path.Combine(gameRoot, "zfapply.exe"), true);
         File.Copy(Path.Combine(compat, "ddraw.dll"), Path.Combine(gameRoot, "ddraw.dll"), true);
-        File.Copy(Path.Combine(payload, "config", "DDrawCompat.ini"), Path.Combine(gameRoot, "DDrawCompat.ini"), true);
+        string ddrawConfig = Path.Combine(gameRoot, "DDrawCompat.ini");
+        string ddrawProfile = pm ? "DDrawCompat-PiratesMoon.ini" : "DDrawCompat.ini";
+        File.Copy(Path.Combine(payload, "config", ddrawProfile), ddrawConfig, true);
         CopyDirectory(Path.Combine(payload, "shaders"), Path.Combine(gameRoot, "common-shaders-master"));
         Run(Path.Combine(gameRoot, "zfapply.exe"), "", gameRoot);
         if (!File.Exists(Path.Combine(gameRoot, "Mech3fixup.exe"))) throw new InvalidOperationException("ZipperFixup did not create Mech3fixup.exe.");
@@ -401,7 +394,7 @@ internal sealed class InstallerForm : Form
         using (RegistryKey hklm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64))
         using (RegistryKey key = hklm.CreateSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MW3Remastered"))
         {
-            key.SetValue("DisplayName", "MechWarrior 3 Remastered"); key.SetValue("DisplayVersion", "1.2.3"); key.SetValue("Publisher", "Community preservation project");
+            key.SetValue("DisplayName", "MechWarrior 3 Remastered"); key.SetValue("DisplayVersion", "1.2.4"); key.SetValue("Publisher", "Community preservation project");
             key.SetValue("InstallLocation", root); key.SetValue("DisplayIcon", Path.Combine(root, "MW3Launcher.exe"));
             key.SetValue("UninstallString", "\"" + Path.Combine(root, "Uninstall.exe") + "\""); key.SetValue("NoModify", 1, RegistryValueKind.DWord); key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
         }

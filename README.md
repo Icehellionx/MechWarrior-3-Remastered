@@ -6,9 +6,9 @@ This project is not affiliated with or endorsed by MicroProse, Hasbro Interactiv
 
 ## ⬇️ Download the installer
 
-### [Download MechWarrior 3 Remastered v1.2.3 Setup.exe](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/MechWarrior-3-Remastered-Setup.exe)
+### [Download MechWarrior 3 Remastered v1.2.4 Setup.exe](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/MechWarrior-3-Remastered-Setup.exe)
 
-Current release: [v1.2.3](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/tag/v1.2.3)
+Current release: [v1.2.4](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/tag/v1.2.4)
 
 **Most people only need the link above.** You supply your own MechWarrior 3 ISO when the installer asks for it. Pirate's Moon is optional and accepts the commonly available RIP ZIP/folder or an original ISO.
 
@@ -45,7 +45,7 @@ Neither ISO is included, uploaded, or copied into the installed directory.
 1. Run the setup EXE.
 2. Browse to your MechWarrior 3 ISO.
 3. Optionally select Pirate's Moon and browse to its RIP ZIP, extracted RIP folder, or ISO.
-4. Keep the default `Program Files (x86)` destination or choose another empty directory.
+4. Keep the default per-user `LocalAppData\Programs` destination or choose another empty directory.
 5. Use the installed desktop or Start-menu launcher to open either game or either manual.
 
 Keep ISO files at the paths selected during setup. The launcher mounts the relevant disc before starting the game and prompts again if it moves. A Pirate's Moon RIP ZIP/folder is only needed during installation.
@@ -57,9 +57,9 @@ Keep ISO files at the paths selected during setup. The launcher mounts the relev
 - Adds DDrawCompat, ZipperFixup, the MW3 remaster shader, and CD-audio compatibility.
 - Creates all-user desktop and Start-menu shortcuts.
 - Installs a black-and-red remaster hub for both games and both PDF manuals.
-- Detects the game's intermittent early video-initialization failure and retries automatically up to four times.
+- Starts with desktop-resolution internal rendering and 4× MSAA. If Pirate's Moon loses its primary DirectDraw surface during the borderless startup transition, the compatibility wrapper restores it and retries the failed attachment in-process before the launcher advances through its five ordered recovery profiles.
 - Restores the known-good Direct3D adapter and video-mode values before each recovery attempt and records launch diagnostics under `%LOCALAPPDATA%\MechWarrior 3 Remastered\launcher.log`.
-- Starts CD music at 60% on first launch and preserves later in-game volume changes.
+- Starts CD music at 60% on first launch and preserves later in-game volume changes. The audio helper shuts down with the game, including when the launcher is interrupted, so it does not retain installation-file locks.
 - Registers an uninstaller in Windows Apps/Installed apps.
 - Installs the hash-verified Indeo 5 codec from the user's MW3 disc for retail FMV playback.
 - Stores the selected ISO paths locally in `install.cfg`.

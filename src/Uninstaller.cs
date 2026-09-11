@@ -10,8 +10,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("MechWarrior 3 Remastered contributors")]
 [assembly: AssemblyProduct("MechWarrior 3 Remastered")]
 [assembly: AssemblyCopyright("Copyright © 2026 MechWarrior 3 Remastered contributors")]
-[assembly: AssemblyVersion("1.2.3.0")]
-[assembly: AssemblyFileVersion("1.2.3.0")]
+[assembly: AssemblyVersion("1.2.4.0")]
+[assembly: AssemblyFileVersion("1.2.4.0")]
 
 internal static class Uninstaller
 {
@@ -22,6 +22,7 @@ internal static class Uninstaller
         if (MessageBox.Show("Remove MechWarrior 3 Remastered? Saved pilots and settings inside the installation folder will also be removed.", "Uninstall MechWarrior 3 Remastered", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
         try
         {
+            InstalledProcessScope.StopAudioPlayers(Path.Combine(root, "MechWarrior 3"), delegate { });
             DeleteShortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory), "MechWarrior 3 Remastered.lnk"));
             DeleteShortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory), "MechWarrior 3 - Pirate's Moon.lnk"));
             string menu = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu), "Programs", "MechWarrior 3 Remastered");

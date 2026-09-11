@@ -6,6 +6,7 @@ smoke-test/
 dist/*.exe
 dist/SHA256SUMS.txt
 dist/PAYLOAD_MANIFEST.sha256
+rollback/*.exe
 
 # User-owned media and extracted game data must never be committed.
 *.iso

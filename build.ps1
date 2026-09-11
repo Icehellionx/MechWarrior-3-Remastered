@@ -27,10 +27,10 @@ New-Item -ItemType Directory -Path (Split-Path -Parent $cdAudioPlayer) -Force | 
 & $csc /nologo /target:winexe /platform:x86 /optimize+ "/out:$cdAudioPlayer" "$releaseRoot\src\CdAudioPlayer.cs"
 if ($LASTEXITCODE) { throw "CD audio player compilation failed with exit code $LASTEXITCODE." }
 $launcher = Join-Path $payloadRoot 'MW3Launcher.exe'
-& $csc /nologo /target:winexe /platform:anycpu /optimize+ "/win32manifest:$releaseRoot\src\launcher.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/resource:$releaseRoot\assets\MW3-Game.png,MW3.Game.png" "/resource:$releaseRoot\assets\Pirates-Moon-Game.png,PiratesMoon.Game.png" "/resource:$releaseRoot\assets\MW3-Manual-Cover.png,MW3.ManualCover.png" "/resource:$releaseRoot\assets\Pirates-Moon-Manual-Cover.png,PiratesMoon.ManualCover.png" "/out:$launcher" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "$releaseRoot\src\Launcher.cs"
+& $csc /nologo /target:winexe /platform:anycpu /optimize+ "/win32manifest:$releaseRoot\src\launcher.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/resource:$releaseRoot\assets\MW3-Game.png,MW3.Game.png" "/resource:$releaseRoot\assets\Pirates-Moon-Game.png,PiratesMoon.Game.png" "/resource:$releaseRoot\assets\MW3-Manual-Cover.png,MW3.ManualCover.png" "/resource:$releaseRoot\assets\Pirates-Moon-Manual-Cover.png,PiratesMoon.ManualCover.png" "/out:$launcher" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "$releaseRoot\src\Launcher.cs" "$releaseRoot\src\LauncherRecovery.cs" "$releaseRoot\src\InstalledProcessScope.cs"
 if ($LASTEXITCODE) { throw "Launcher compilation failed with exit code $LASTEXITCODE." }
 $uninstaller = Join-Path $payloadRoot 'Uninstall.exe'
-& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$uninstaller" /reference:System.Windows.Forms.dll "$releaseRoot\src\Uninstaller.cs"
+& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$uninstaller" /reference:System.Windows.Forms.dll "$releaseRoot\src\Uninstaller.cs" "$releaseRoot\src\InstalledProcessScope.cs"
 if ($LASTEXITCODE) { throw "Uninstaller compilation failed with exit code $LASTEXITCODE." }
 
 # Extraction tool: used temporarily and not left in the installed game.
@@ -42,11 +42,15 @@ Copy-Item -LiteralPath "$projectRoot\staging\patch12-payload" -Destination "$pay
 # Current compatibility/remaster binaries.
 Copy-ReleaseFile "$projectRoot\tools\ZipperFixup\target\i686-pc-windows-msvc\release\zipfixup.dll" "$payloadRoot\compat\zipfixup.dll"
 Copy-ReleaseFile "$projectRoot\tools\ZipperFixup\target\i686-pc-windows-msvc\release\zippatch.exe" "$payloadRoot\compat\zfapply.exe"
-Copy-ReleaseFile "$projectRoot\tools\DDrawCompat\Release\ddraw.dll" "$payloadRoot\compat\ddraw.dll"
+# Ship the clean v0.7.1-derived wrapper with isolated presentation fixes and
+# the separately switchable INTRO.AVI dark-chroma cleanup experiment.
+# The development tree contains broader experimental hooks and is not a release input.
+Copy-ReleaseFile "$projectRoot\tools\releases\DDrawCompat-MW3-field-baseline-v0.7.1-r18-primary-surface-retry\ddraw.dll" "$payloadRoot\compat\ddraw.dll"
 Copy-ReleaseFile "$projectRoot\tools\releases\cdaudio-winmm-0.4.0.3\package\winmm.dll" "$payloadRoot\compat\winmm.dll"
 Copy-ReleaseFile "$projectRoot\tools\releases\cdaudio-winmm-0.4.0.3\package\mcicda\cdaudio_vol.ini" "$payloadRoot\compat\cdaudio_vol.ini"
 
 Copy-ReleaseFile "$releaseRoot\config\DDrawCompat.ini" "$payloadRoot\config\DDrawCompat.ini"
+Copy-ReleaseFile "$releaseRoot\config\DDrawCompat-PiratesMoon.ini" "$payloadRoot\config\DDrawCompat-PiratesMoon.ini"
 Copy-ReleaseFile "$projectRoot\config\cdaudio-winmm.ini" "$payloadRoot\config\winmm.ini"
 Copy-Item -LiteralPath "$projectRoot\shaders\common-shaders-master\mw3-remaster" -Destination "$payloadRoot\shaders\mw3-remaster" -Recurse
 
@@ -92,7 +96,7 @@ if ($forbidden) { throw "Forbidden release input detected: $($forbidden.FullName
 $payloadZip = Join-Path $objRoot 'payload.zip'
 Compress-Archive -Path (Join-Path $payloadRoot '*') -DestinationPath $payloadZip -CompressionLevel Optimal
 $setup = Join-Path $distRoot 'MechWarrior-3-Remastered-Setup.exe'
-& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$setup" "/resource:$payloadZip,Payload.zip" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll "$releaseRoot\src\Installer.cs"
+& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$setup" "/resource:$payloadZip,Payload.zip" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll "$releaseRoot\src\Installer.cs" "$releaseRoot\src\LauncherRecovery.cs"
 if ($LASTEXITCODE) { throw "Installer compilation failed with exit code $LASTEXITCODE." }
 
 $result = Get-Item -LiteralPath $setup
