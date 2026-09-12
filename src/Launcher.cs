@@ -17,8 +17,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("MechWarrior 3 Remastered contributors")]
 [assembly: AssemblyProduct("MechWarrior 3 Remastered")]
 [assembly: AssemblyCopyright("Copyright © 2026 MechWarrior 3 Remastered contributors")]
-[assembly: AssemblyVersion("1.2.4.0")]
-[assembly: AssemblyFileVersion("1.2.4.0")]
+[assembly: AssemblyVersion("1.2.5.0")]
+[assembly: AssemblyFileVersion("1.2.5.0")]
 
 internal sealed class GameRequest
 {
@@ -444,16 +444,8 @@ internal static class LauncherRuntime
 
     private static void SetRegistry(string gameRoot, bool pm)
     {
-        string slashRoot = gameRoot.TrimEnd('\\') + "\\";
+        GameInstallRegistry.WriteVirtualStoreRegistration(gameRoot, pm);
         string product = pm ? "MechWarrior 3 EP1" : "MechWarrior 3";
-        using (RegistryKey hkcu = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Default))
-        using (RegistryKey install = hkcu.CreateSubKey("Software\\Classes\\VirtualStore\\MACHINE\\SOFTWARE\\WOW6432Node\\MicroProse\\" + product + "\\1.0"))
-        {
-            install.SetValue("InstallPath", slashRoot, RegistryValueKind.String);
-            if (pm) install.SetValue("Program", slashRoot, RegistryValueKind.String);
-            install.SetValue("Version", pm ? "1.0" : "1.2", RegistryValueKind.String);
-            install.SetValue("InstallOptions", 0x00050707, RegistryValueKind.DWord);
-        }
         using (RegistryKey hkcu = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Default))
         using (RegistryKey settings = hkcu.CreateSubKey("Software\\MicroProse\\" + product + "\\1.0"))
         {

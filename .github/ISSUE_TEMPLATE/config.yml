@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Download the latest release
+    url: https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest
+    about: Confirm that the problem still occurs with the newest published installer before reporting it.

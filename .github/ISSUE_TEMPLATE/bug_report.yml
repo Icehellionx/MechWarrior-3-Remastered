@@ -1,0 +1,92 @@
+name: Bug report
+description: Report an installation, launch, graphics, audio, or gameplay compatibility problem.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve MechWarrior 3 Remastered. Do not attach game ISOs, extracted game files, credentials, or private/unrelated crash data. Remove personal paths from logs before uploading them.
+  - type: input
+    id: release
+    attributes:
+      label: Remaster version
+      description: This appears in the launcher log, for example 1.2.5.0.
+      placeholder: 1.2.5.0
+    validations:
+      required: true
+  - type: dropdown
+    id: game
+    attributes:
+      label: Affected game or component
+      options:
+        - MechWarrior 3
+        - Pirate's Moon
+        - Installer or launcher
+        - Both games
+    validations:
+      required: true
+  - type: dropdown
+    id: media
+    attributes:
+      label: Source media
+      options:
+        - Original ISO
+        - Pirate's Moon RIP ZIP or folder
+        - Physical disc
+        - Other or unknown
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version and build
+      placeholder: Windows 11 24H2, build 26100.x
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU and driver version
+      placeholder: NVIDIA RTX 5080, driver 000.00
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Include the exact error text and the last stage that worked.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Install to the default location
+        2. Open the launcher
+        3. Select MechWarrior 3
+        4. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Attach the sanitized launcher.log and relevant per-attempt folder named in the error. Do not attach the game or ISO.
+      placeholder: Attach files or paste the relevant final lines here.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workarounds or interfering software
+      description: Note anything that changes the result, including a restart, retail setup, overlays, capture tools, or security-product detection names.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I removed personal information and did not attach game media, credentials, or unrelated private files.
+          required: true

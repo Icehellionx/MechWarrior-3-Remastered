@@ -6,9 +6,9 @@ This project is not affiliated with or endorsed by MicroProse, Hasbro Interactiv
 
 ## ⬇️ Download the installer
 
-### [Download MechWarrior 3 Remastered v1.2.4 Setup.exe](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/MechWarrior-3-Remastered-Setup.exe)
+### [Download MechWarrior 3 Remastered v1.2.5 Setup.exe](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/MechWarrior-3-Remastered-Setup.exe)
 
-Current release: [v1.2.4](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/tag/v1.2.4)
+Current release: [v1.2.5](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/tag/v1.2.5)
 
 Renderer source and standalone package:
 [DDrawCompat-MW3](https://github.com/Icehellionx/DDrawCompat-MW3). This is the
@@ -71,6 +71,7 @@ Keep ISO files at the paths selected during setup. The launcher mounts the relev
 - Stores the selected ISO paths locally in `install.cfg`.
 - Waits for each mounted ISO to receive a drive letter and become readable before starting the game.
 - Installs both original manuals under `Manuals`, links them from the launcher, and also links them from the Start menu.
+- Registers the games' complete-install metadata in the canonical 32-bit Windows registry view, preventing the misleading `Software Render Files component was not installed during Setup` startup error on clean systems.
 
 See [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before installing if you want the full details.
 
@@ -79,6 +80,10 @@ See [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [THIRD_PARTY_NOTIC
 - The release is not Authenticode-signed, so Windows cannot display a verified publisher.
 - The US MW3 disc path and common Pirate's Moon RIP folder/ZIP path have passed extraction and patching tests. A complete Pirate's Moon ISO was not available for an end-to-end media test.
 - This project does not promise compatibility with other regions or modified disc images.
+
+## Reporting a bug
+
+Use the [guided bug report form](https://github.com/Icehellionx/MechWarrior-3-Remastered/issues/new?template=bug_report.yml) and include the requested launcher diagnostics. Before uploading, remove personal paths or other private information. Never attach game ISOs, extracted game files, credentials, or unrelated crash artifacts.
 
 ## Development
 

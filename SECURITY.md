@@ -8,9 +8,9 @@ The installer is currently unsigned. A matching checksum proves that a download 
 
 ## Privileged operations
 
-Setup requests administrator access because the default destination is Program Files (x86), shortcuts are created for all users, uninstall information is written under HKLM, and the retail Indeo codec is installed under SysWOW64. The normal game launcher runs as the current user.
+Setup requests administrator access because shortcuts are created for all users, required 32-bit game and uninstall information is written under HKLM, and the retail Indeo codec is installed under SysWOW64. The default game destination is the current user's local Programs directory, and the normal game launcher runs as that user without elevation.
 
-Setup also mounts user-selected ISO media, extracts legacy InstallShield/ZIP content, patches the selected retail executable with ZipperFixup, and writes per-user game registry settings. Pirate's Moon RIP inputs are accepted only when both executable hashes and the expected directory layout match the supported release; NFO, log, registry, uninstaller-state, and `CRACK` directory debris are not copied into the installed game. These behaviors are required by the preservation workflow and are disclosed because security products may treat them as unusual.
+Setup also mounts user-selected ISO media, extracts legacy InstallShield/ZIP content, patches the selected retail executable with ZipperFixup, and writes the games' required 32-bit machine-wide installation metadata. The launcher writes per-user game settings and a compatibility registration fallback. Pirate's Moon RIP inputs are accepted only when both executable hashes and the expected directory layout match the supported release; NFO, log, registry, uninstaller-state, and `CRACK` directory debris are not copied into the installed game. These behaviors are required by the preservation workflow and are disclosed because security products may treat them as unusual.
 
 Setup never asks users to disable antivirus software, SmartScreen, User Account Control, or other Windows security features.
 

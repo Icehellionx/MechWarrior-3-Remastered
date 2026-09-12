@@ -23,6 +23,11 @@ try {
     $game = [string](Join-Path $smoke 'game')
     New-Item -ItemType Directory -Path $payload | Out-Null
     $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+    $registryTest = Join-Path $smoke 'GameInstallRegistrySmoke.exe'
+    & $csc /nologo /target:exe /platform:anycpu /optimize+ "/out:$registryTest" (Join-Path $releaseRoot 'tests\GameInstallRegistrySmoke.cs') (Join-Path $releaseRoot 'src\GameInstallRegistry.cs')
+    if ($LASTEXITCODE) { throw "Game install registry test compilation failed with exit code $LASTEXITCODE." }
+    & $registryTest
+    if ($LASTEXITCODE) { throw "Game install registry tests failed with exit code $LASTEXITCODE." }
     $launcherRecoveryTest = Join-Path $smoke 'LauncherRecoverySmoke.exe'
     & $csc /nologo /target:exe /platform:anycpu /optimize+ "/out:$launcherRecoveryTest" (Join-Path $releaseRoot 'tests\LauncherRecoverySmoke.cs') (Join-Path $releaseRoot 'src\LauncherRecovery.cs') (Join-Path $releaseRoot 'src\InstalledProcessScope.cs')
     if ($LASTEXITCODE) { throw "Launcher recovery test compilation failed with exit code $LASTEXITCODE." }
