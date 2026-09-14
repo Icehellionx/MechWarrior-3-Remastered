@@ -61,6 +61,13 @@ internal static class GameInstallRegistry
             RemoveIfOwned(hkcu, registration.VirtualStoreKeyPath, registration.InstallPath);
     }
 
+    internal static void RemoveUserSettings(bool piratesMoon)
+    {
+        string product = piratesMoon ? "MechWarrior 3 EP1" : "MechWarrior 3";
+        using (RegistryKey hkcu = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Default))
+            hkcu.DeleteSubKeyTree("Software\\MicroProse\\" + product, false);
+    }
+
     private static void WriteValues(RegistryKey key, GameInstallRegistration registration)
     {
         key.SetValue("InstallPath", registration.InstallPath, RegistryValueKind.String);

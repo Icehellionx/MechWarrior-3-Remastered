@@ -13,8 +13,8 @@ using System.Threading;
 [assembly: System.Reflection.AssemblyCompany("MechWarrior 3 Remastered contributors")]
 [assembly: System.Reflection.AssemblyProduct("MechWarrior 3 Remastered")]
 [assembly: System.Reflection.AssemblyCopyright("Copyright © 2026 MechWarrior 3 Remastered contributors")]
-[assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.0.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.1.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.1.0.0")]
 
 internal static class CdAudioPlayer
 {
@@ -28,7 +28,6 @@ internal static class CdAudioPlayer
     private const uint WaitObject0 = 0;
     private const string PlayerSlot = @"\\.\Mailslot\cdaudioplr_Mailslot";
     private const string WrapperSlot = @"\\.\Mailslot\winmm_Mailslot";
-    private const string Alias = "mw3track";
     private static readonly IntPtr InvalidHandle = new IntPtr(-1);
     private static readonly object StateLock = new object();
     private static volatile bool quitting;
@@ -37,7 +36,7 @@ internal static class CdAudioPlayer
     private static int pausedTrack;
     private static int commandVersion;
     private static bool notify;
-    private static bool aliasOpen;
+    private static readonly Mp3WaveOutPlayer player = new Mp3WaveOutPlayer();
     private static uint auxVolume = 0xffffffff;
     private static int volumeOverride = 100;
     private static string musicDirectory;
@@ -93,12 +92,6 @@ internal static class CdAudioPlayer
         public string ExeFile;
     }
 
-    [DllImport("winmm.dll", CharSet = CharSet.Unicode)]
-    private static extern uint mciSendString(string command, StringBuilder result, uint resultLength, IntPtr callback);
-
-    [DllImport("winmm.dll")]
-    private static extern uint waveOutSetVolume(IntPtr waveOut, uint volume);
-
     [STAThread]
     private static void Main()
     {
@@ -124,6 +117,7 @@ internal static class CdAudioPlayer
 
             RunPlayer();
             CloseTrack();
+            player.Dispose();
         }
     }
 
@@ -174,9 +168,8 @@ internal static class CdAudioPlayer
     private static void LoadTracks()
     {
         string[] mp3 = Directory.Exists(musicDirectory) ? Directory.GetFiles(musicDirectory, "track*.mp3") : new string[0];
-        string[] wav = Directory.Exists(musicDirectory) ? Directory.GetFiles(musicDirectory, "track*.wav") : new string[0];
-        string[] tracks = mp3.Length != 0 ? mp3 : wav;
-        extension = mp3.Length != 0 ? ".mp3" : ".wav";
+        string[] tracks = mp3;
+        extension = ".mp3";
         int highestTrack = 1;
         foreach (string path in tracks)
         {
@@ -273,9 +266,8 @@ internal static class CdAudioPlayer
     {
         if (requested == 100)
         {
-            if (aliasOpen && currentTrack > 0)
+            if (player.IsOpen && currentTrack > 0 && player.Pause())
             {
-                SendMci("pause " + Alias, null);
                 pausedTrack = currentTrack;
                 SendToWrapper("1 mode");
             }
@@ -288,37 +280,35 @@ internal static class CdAudioPlayer
             SendToWrapper("1 mode");
             return;
         }
-        if (aliasOpen && pausedTrack == requested)
+        if (player.IsOpen && pausedTrack == requested)
         {
-            SendMci("resume " + Alias, null);
-            currentTrack = requested;
-            pausedTrack = 0;
-            SendToWrapper("2 mode");
+            if (player.Resume())
+            {
+                currentTrack = requested;
+                pausedTrack = 0;
+                SendToWrapper("2 mode");
+            }
+            else { CloseTrack(); SendToWrapper("1 mode"); }
             return;
         }
 
         CloseTrack();
         string path = Path.Combine(musicDirectory, "track" + requested.ToString("00") + extension);
         if (!File.Exists(path)) { SendToWrapper("1 mode"); return; }
-        string type = extension.Equals(".wav", StringComparison.OrdinalIgnoreCase) ? "waveaudio" : "mpegvideo";
-        if (SendMci("open \"" + path.Replace("\"", "\"\"") + "\" type " + type + " alias " + Alias, null) != 0)
+        if (!player.Start(path))
         {
             SendToWrapper("1 mode");
             return;
         }
-        aliasOpen = true;
         currentTrack = requested;
         pausedTrack = 0;
         ApplyVolume();
-        if (SendMci("play " + Alias, null) == 0) SendToWrapper("2 mode");
-        else { CloseTrack(); SendToWrapper("1 mode"); }
+        SendToWrapper("2 mode");
     }
 
     private static void PollForCompletion(int playbackVersion)
     {
-        if (!aliasOpen || currentTrack == 0 || pausedTrack != 0) return;
-        StringBuilder mode = new StringBuilder(32);
-        if (SendMci("status " + Alias + " mode", mode) != 0 || mode.ToString().Equals("playing", StringComparison.OrdinalIgnoreCase)) return;
+        if (currentTrack == 0 || pausedTrack != 0 || !player.Completed) return;
         CloseTrack();
         lock (StateLock)
         {
@@ -330,17 +320,10 @@ internal static class CdAudioPlayer
         SendToWrapper("1 mode");
     }
 
-    private static uint SendMci(string command, StringBuilder result)
-    {
-        return mciSendString(command, result, result == null ? 0u : (uint)result.Capacity, IntPtr.Zero);
-    }
-
     private static void CloseTrack()
     {
-        if (!aliasOpen) return;
-        SendMci("stop " + Alias, null);
-        SendMci("close " + Alias, null);
-        aliasOpen = false;
+        player.Stop();
+        pausedTrack = 0;
     }
 
     private static void ApplyVolume()
@@ -351,7 +334,7 @@ internal static class CdAudioPlayer
             uint channel = (uint)Math.Round(65535.0 * volumeOverride / 100.0);
             value = channel | (channel << 16);
         }
-        waveOutSetVolume(IntPtr.Zero, value);
+        player.SetVolume(value);
     }
 
     private static void SendToWrapper(string message)

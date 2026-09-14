@@ -212,10 +212,14 @@ internal sealed class IsoMountSession : IDisposable
         {
             string escaped = imagePath.Replace("'", "''");
             string command = "$ErrorActionPreference='Stop'; $p='" + escaped + "'; " +
-                "$i=Get-DiskImage -ImagePath $p -ErrorAction SilentlyContinue; " +
-                "if($i -and $i.Attached){Dismount-DiskImage -ImagePath $p -ErrorAction Stop}";
+                "$deadline=[DateTime]::UtcNow.AddSeconds(15); $last=''; " +
+                "do{$i=Get-DiskImage -ImagePath $p -ErrorAction SilentlyContinue; " +
+                "if(-not $i -or -not $i.Attached){Write-Output 'EJECTED|verified'; exit 0}; " +
+                "try{Dismount-DiskImage -ImagePath $p -ErrorAction Stop}catch{$last=$_.Exception.Message}; " +
+                "Start-Sleep -Milliseconds 250}while([DateTime]::UtcNow -lt $deadline); " +
+                "Write-Error ('Disc image remained attached after eject attempts. '+$last); exit 3";
             PowerShellResult result = RunPowerShell(command);
-            if (result.ExitCode == 0)
+            if (result.ExitCode == 0 && OutputIndicatesVerifiedEject(result.Output))
             {
                 try { if (File.Exists(ownershipStatePath)) File.Delete(ownershipStatePath); } catch { }
                 log("Ejected launcher-mounted disc image.");
@@ -227,6 +231,15 @@ internal sealed class IsoMountSession : IDisposable
         {
             log("Warning: could not eject launcher-mounted disc image: " + Sanitize(ex.Message) + ".");
         }
+    }
+
+    internal static bool OutputIndicatesVerifiedEject(string output)
+    {
+        if (String.IsNullOrEmpty(output)) return false;
+        string[] lines = output.Replace("\r", String.Empty).Split('\n');
+        foreach (string line in lines)
+            if (line.Trim().Equals("EJECTED|verified", StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
     }
 
     internal static bool OutputIndicatesOwnedMount(string output)

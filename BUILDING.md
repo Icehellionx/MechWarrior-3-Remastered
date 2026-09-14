@@ -8,7 +8,8 @@ Required adjacent workspace inputs:
 - the pinned UnshieldSharp executable;
 - locally built ZipperFixup 0.1.2 binaries;
 - the MW3-specific DDrawCompat build and shader;
-- cdaudio-winmm 0.4.0.3 wrapper files (the auditable managed helper is built from `src/CdAudioPlayer.cs`);
+- cdaudio-winmm 0.4.0.3 wrapper files (the auditable managed helper is built from `src/CdAudioPlayer.cs` and `src/Mp3WaveOutPlayer.cs`);
+- the tracked, hash-pinned NLayer 1.16.0 NuGet package and MIT license under `third_party/NLayer-1.16.0`;
 - redistribution-safe music files;
 - maintainer-supplied manual PDFs under the ignored `payload/Manuals` directory; and
 - the adjacent canonical WinMM configuration file. The DDrawCompat preset is tracked under `config`.

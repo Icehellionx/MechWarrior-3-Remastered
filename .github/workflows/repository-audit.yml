@@ -28,18 +28,54 @@ jobs:
       - name: Compile public source
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
           New-Item -ItemType Directory -Path obj -Force | Out-Null
-          & $csc /nologo /target:winexe /platform:anycpu /optimize+ /win32manifest:src\launcher.manifest /win32icon:assets\MW3-Remastered.ico /resource:assets\MW3-Game.png,MW3.Game.png /resource:assets\Pirates-Moon-Game.png,PiratesMoon.Game.png /resource:assets\MW3-Manual-Cover.png,MW3.ManualCover.png /resource:assets\Pirates-Moon-Manual-Cover.png,PiratesMoon.ManualCover.png /out:obj\MW3Launcher.exe /reference:System.Windows.Forms.dll /reference:System.Drawing.dll src\Launcher.cs src\LauncherRecovery.cs src\InstalledProcessScope.cs src\GameInstallRegistry.cs
+          $nlayerPackage = 'third_party\NLayer-1.16.0\NLayer.1.16.0.nupkg'
+          $nlayerHash = 'E0E112C3BFC3B4F49E87CC4855B0F3DC6AC28D257A58B6A4F22098F8D0D4A9B9'
+          if ((Get-FileHash -LiteralPath $nlayerPackage -Algorithm SHA256).Hash -ne $nlayerHash) { throw 'Pinned NLayer package hash mismatch.' }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $nlayerPackage))
+          try {
+            $nlayerEntry = $archive.GetEntry('lib/netstandard2.0/NLayer.dll')
+            if (-not $nlayerEntry) { throw 'Pinned NLayer package does not contain the expected .NET Standard assembly.' }
+            [IO.Compression.ZipFileExtensions]::ExtractToFile($nlayerEntry, (Join-Path (Resolve-Path obj) 'NLayer.dll'), $true)
+          }
+          finally { $archive.Dispose() }
+          $netStandard = Get-ChildItem -LiteralPath 'C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework' -Filter netstandard.dll -Recurse | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $netStandard) { throw 'The .NET Framework netstandard reference facade is unavailable.' }
+          & $csc /nologo /target:winexe /platform:x86 /optimize+ /out:obj\cdaudioplr.exe /reference:obj\NLayer.dll "/reference:$netStandard" src\CdAudioPlayer.cs src\Mp3WaveOutPlayer.cs
+          if ($LASTEXITCODE) { throw 'CD audio helper compilation failed.' }
+          & $csc /nologo /target:winexe /platform:anycpu /optimize+ /win32manifest:src\launcher.manifest /win32icon:assets\MW3-Remastered.ico /resource:assets\MW3-Game.png,MW3.Game.png /resource:assets\Pirates-Moon-Game.png,PiratesMoon.Game.png /resource:assets\MW3-Manual-Cover.png,MW3.ManualCover.png /resource:assets\Pirates-Moon-Manual-Cover.png,PiratesMoon.ManualCover.png /out:obj\MW3Launcher.exe /reference:System.Windows.Forms.dll /reference:System.Drawing.dll src\Launcher.cs src\LauncherRecovery.cs src\InstalledProcessScope.cs src\GameInstallRegistry.cs src\GameControlStorage.cs
           if ($LASTEXITCODE) { throw 'Launcher compilation failed.' }
-          & $csc /nologo /target:winexe /platform:x64 /optimize+ /win32manifest:src\app.manifest /win32icon:assets\MW3-Remastered.ico /out:obj\Uninstall.exe /reference:System.Windows.Forms.dll src\Uninstaller.cs src\InstalledProcessScope.cs src\GameInstallRegistry.cs
+          & $csc /nologo /target:winexe /platform:x64 /optimize+ /win32manifest:src\app.manifest /win32icon:assets\MW3-Remastered.ico /out:obj\Uninstall.exe /reference:System.Windows.Forms.dll /reference:Microsoft.CSharp.dll src\Uninstaller.cs src\InstalledProcessScope.cs src\GameInstallRegistry.cs src\GameSaveStorage.cs src\LauncherShortcutPolicy.cs
           if ($LASTEXITCODE) { throw 'Uninstaller compilation failed.' }
           New-Item -ItemType Directory -Path obj\empty -Force | Out-Null
           [IO.File]::WriteAllText((Join-Path (Resolve-Path obj\empty) 'placeholder.txt'), 'compile-only payload')
           Compress-Archive -Path obj\empty -DestinationPath obj\empty-payload.zip
-          & $csc /nologo /target:winexe /platform:x64 /optimize+ /win32manifest:src\app.manifest /win32icon:assets\MW3-Remastered.ico /out:obj\Setup.exe /resource:obj\empty-payload.zip,Payload.zip /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll src\Installer.cs src\LauncherRecovery.cs src\GameInstallRegistry.cs
+          & $csc /nologo /target:winexe /platform:x64 /optimize+ /win32manifest:src\app.manifest /win32icon:assets\MW3-Remastered.ico /out:obj\Setup.exe /resource:obj\empty-payload.zip,Payload.zip /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll src\Installer.cs src\LauncherRecovery.cs src\GameInstallRegistry.cs src\PiratesMoonMedia.cs src\GameControlStorage.cs src\GameSaveStorage.cs src\LauncherShortcutPolicy.cs
           if ($LASTEXITCODE) { throw 'Installer compilation failed.' }
           & $csc /nologo /target:exe /platform:anycpu /optimize+ /out:obj\GameInstallRegistrySmoke.exe tests\GameInstallRegistrySmoke.cs src\GameInstallRegistry.cs
           if ($LASTEXITCODE) { throw 'Game install registry test compilation failed.' }
           & .\obj\GameInstallRegistrySmoke.exe
           if ($LASTEXITCODE) { throw 'Game install registry tests failed.' }
+          & $csc /nologo /target:exe /platform:anycpu /optimize+ /out:obj\GameControlStorageSmoke.exe tests\GameControlStorageSmoke.cs src\GameControlStorage.cs
+          if ($LASTEXITCODE) { throw 'Control-profile storage test compilation failed.' }
+          & .\obj\GameControlStorageSmoke.exe
+          if ($LASTEXITCODE) { throw 'Control-profile storage tests failed.' }
+          & $csc /nologo /target:exe /platform:anycpu /optimize+ /out:obj\GameSaveStorageSmoke.exe tests\GameSaveStorageSmoke.cs src\GameSaveStorage.cs
+          if ($LASTEXITCODE) { throw 'Save-preservation test compilation failed.' }
+          & .\obj\GameSaveStorageSmoke.exe
+          if ($LASTEXITCODE) { throw 'Save-preservation tests failed.' }
+          & $csc /nologo /target:exe /platform:anycpu /optimize+ /out:obj\LauncherShortcutPolicySmoke.exe /reference:Microsoft.CSharp.dll tests\LauncherShortcutPolicySmoke.cs src\LauncherShortcutPolicy.cs
+          if ($LASTEXITCODE) { throw 'Launcher shortcut policy test compilation failed.' }
+          & .\obj\LauncherShortcutPolicySmoke.exe
+          if ($LASTEXITCODE) { throw 'Launcher shortcut policy tests failed.' }
+          & $csc /nologo /target:exe /platform:anycpu /optimize+ /out:obj\LauncherRecoverySmoke.exe tests\LauncherRecoverySmoke.cs src\LauncherRecovery.cs src\InstalledProcessScope.cs
+          if ($LASTEXITCODE) { throw 'Launcher recovery test compilation failed.' }
+          & .\obj\LauncherRecoverySmoke.exe
+          if ($LASTEXITCODE) { throw 'Launcher recovery tests failed.' }
+          & $csc /nologo /target:exe /platform:anycpu /optimize+ /out:obj\PiratesMoonMediaSmoke.exe tests\PiratesMoonMediaSmoke.cs src\PiratesMoonMedia.cs
+          if ($LASTEXITCODE) { throw 'Pirate''s Moon media test compilation failed.' }
+          & .\obj\PiratesMoonMediaSmoke.exe
+          if ($LASTEXITCODE) { throw 'Pirate''s Moon synthetic CUE/BIN conversion tests failed.' }

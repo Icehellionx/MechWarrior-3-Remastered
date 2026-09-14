@@ -126,6 +126,9 @@ internal static class LauncherRecoverySmoke
         Assert(!IsoMountSession.OutputIndicatesOwnedMount("MOUNT|existing\r\nREADY|D:\\|MECH3"), "Pre-existing mount was incorrectly claimed.");
         Assert(!IsoMountSession.OutputIndicatesOwnedMount("READY|D:\\|MECH3"), "Missing ownership marker was incorrectly claimed.");
         Assert(IsoMountSession.GetReadyRoot("MOUNT|owned\r\nREADY|D:\\|MECH3") == "D:\\", "Mounted disc root was not parsed.");
+        Assert(IsoMountSession.OutputIndicatesVerifiedEject("EJECTED|verified"), "Verified eject marker was not recognized.");
+        Assert(!IsoMountSession.OutputIndicatesVerifiedEject(""), "An empty eject result was accepted.");
+        Assert(!IsoMountSession.OutputIndicatesVerifiedEject("Dismount-DiskImage returned"), "An unverified eject result was accepted.");
     }
 
     private static void ConcurrentLaunchesAreRejected(string root)

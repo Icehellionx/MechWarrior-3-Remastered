@@ -30,6 +30,46 @@ internal static class InstalledProcessScope
         return AnyOwnedProcess("Mech3fixup", gameRoot, "Mech3fixup.exe");
     }
 
+    public static void StopLaunchers(string installRoot, Action<string> log)
+    {
+        List<Process> ownedLaunchers = new List<Process>();
+        foreach (Process process in Process.GetProcessesByName("MW3Launcher"))
+        {
+            bool owned = false;
+            try
+            {
+                string executable = process.MainModule == null ? null : process.MainModule.FileName;
+                owned = IsOwnedExecutablePath(executable, installRoot, "MW3Launcher.exe");
+                if (owned) ownedLaunchers.Add(process);
+            }
+            catch { }
+            finally { if (!owned) process.Dispose(); }
+        }
+
+        foreach (Process process in ownedLaunchers)
+        {
+            try
+            {
+                if (process.CloseMainWindow() && process.WaitForExit(3000))
+                {
+                    if (log != null) log("Closed an installation-owned launcher before cleanup.");
+                    continue;
+                }
+
+                process.Kill();
+                if (!process.WaitForExit(3000))
+                    throw new InvalidOperationException("the launcher did not exit within three seconds");
+                if (log != null) log("Stopped an installation-owned launcher before cleanup.");
+            }
+            catch (ArgumentException) { }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("An installed launcher is still running and could not be closed. Close it and retry uninstall. " + ex.Message, ex);
+            }
+            finally { process.Dispose(); }
+        }
+    }
+
     public static void StopAudioPlayers(string gameRoot, Action<string> log)
     {
         string installRoot = GetInstallRoot(gameRoot);

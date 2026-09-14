@@ -17,13 +17,13 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("MechWarrior 3 Remastered contributors")]
 [assembly: AssemblyProduct("MechWarrior 3 Remastered")]
 [assembly: AssemblyCopyright("Copyright © 2026 MechWarrior 3 Remastered contributors")]
-[assembly: AssemblyVersion("1.2.5.0")]
-[assembly: AssemblyFileVersion("1.2.5.0")]
+[assembly: AssemblyVersion("1.2.6.0")]
+[assembly: AssemblyFileVersion("1.2.6.0")]
 
 internal sealed class GameRequest
 {
     public bool PiratesMoon;
-    public bool UsesRip;
+    public bool RequiresDisc;
     public string GameRoot;
     public string Media;
 }
@@ -59,7 +59,7 @@ internal sealed class LauncherForm : Form
         Controls.Add(new Label { Text = "SELECT OPERATION", Font = new Font("Consolas", 9F, FontStyle.Bold), ForeColor = Color.FromArgb(125, 129, 133), AutoSize = true, Location = new Point(586, 49) });
 
         Button mw3 = MakeTile("MECHWARRIOR 3", "Launch base campaign", new Point(24, 92), GameImage(false));
-        Button pm = MakeTile("PIRATE'S MOON", Directory.Exists(Path.Combine(root, "Pirates Moon")) ? "Launch expansion" : "Expansion not installed", new Point(380, 92), GameImage(true));
+        Button pm = MakeTile("PIRATE'S MOON", File.Exists(Path.Combine(root, "Pirates Moon", "Mech3fixup.exe")) ? "Launch expansion" : "Expansion not installed", new Point(380, 92), GameImage(true));
         Button mw3Manual = MakeTile("MW3 MANUAL", "Open original PDF manual", new Point(24, 230), ResourceImage("MW3.ManualCover.png", null) ?? BookImage("3"));
         Button pmManual = MakeTile("PIRATE'S MOON MANUAL", "Open original PDF manual", new Point(380, 230), ResourceImage("PiratesMoon.ManualCover.png", null) ?? BookImage("PM"));
         mw3.Click += async delegate { await LaunchAsync(false); };
@@ -67,11 +67,27 @@ internal sealed class LauncherForm : Form
         mw3Manual.Click += delegate { OpenManual("MechWarrior 3 Manual.pdf"); };
         pmManual.Click += delegate { OpenManual("MechWarrior 3 Pirate's Moon Manual.pdf"); };
 
+        Button uninstall = new Button
+        {
+            Text = "UNINSTALL",
+            Location = new Point(615, 402),
+            Size = new Size(105, 30),
+            BackColor = Panel,
+            ForeColor = Color.FromArgb(180, 184, 188),
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
+        };
+        uninstall.FlatAppearance.BorderColor = Color.FromArgb(91, 25, 29);
+        uninstall.FlatAppearance.MouseOverBackColor = Color.FromArgb(42, 19, 22);
+        uninstall.Click += delegate { StartUninstall(); };
+        actions.Add(uninstall);
+        Controls.Add(uninstall);
+
         status.Text = "SYSTEM READY";
         status.Font = new Font("Consolas", 9F, FontStyle.Bold);
         status.ForeColor = Color.FromArgb(145, 150, 154);
         status.Location = new Point(25, 407);
-        status.Size = new Size(694, 23);
+        status.Size = new Size(570, 23);
         status.TextAlign = ContentAlignment.MiddleLeft;
         Controls.Add(new Label { BackColor = Color.FromArgb(66, 67, 70), Location = new Point(24, 389), Size = new Size(696, 1) });
         Controls.Add(status);
@@ -168,6 +184,21 @@ internal sealed class LauncherForm : Form
         catch (Exception ex) { ShowError(ex.Message); }
     }
 
+    private void StartUninstall()
+    {
+        if (MessageBox.Show(this,
+            "Remove MechWarrior 3 Remastered? Saved pilots and campaign progress will be kept for a future reinstall. All other game files, settings, diagnostics, and shortcuts will be removed.",
+            "Uninstall MechWarrior 3 Remastered", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        try
+        {
+            string uninstaller = Path.Combine(root, "Uninstall.exe");
+            if (!File.Exists(uninstaller)) throw new FileNotFoundException("The installed uninstaller is missing.", uninstaller);
+            Process.Start(new ProcessStartInfo(uninstaller, "--confirmed") { UseShellExecute = true, Verb = "runas" });
+            Close();
+        }
+        catch (Exception ex) { ShowError(ex.Message); }
+    }
+
     private void SetBusy(bool busy)
     {
         foreach (Button button in actions) button.Enabled = !busy;
@@ -213,15 +244,16 @@ internal static class LauncherRuntime
         string gameRoot = Path.Combine(root, pm ? "Pirates Moon" : "MechWarrior 3");
         if (!Directory.Exists(gameRoot)) throw new DirectoryNotFoundException((pm ? "Pirate's Moon" : "MechWarrior 3") + " is not installed.");
         string mediaType;
-        bool rip = pm && cfg.TryGetValue("PiratesMoonMediaType", out mediaType) && mediaType.Equals("Rip", StringComparison.OrdinalIgnoreCase);
+        bool noDisc = pm && cfg.TryGetValue("PiratesMoonMediaType", out mediaType) &&
+            (mediaType.Equals("Rip", StringComparison.OrdinalIgnoreCase) || mediaType.Equals("NoDisc", StringComparison.OrdinalIgnoreCase));
         string media = null;
         string key = pm ? "PiratesMoonIso" : "Mw3Iso";
-        if (!rip && (!cfg.TryGetValue(key, out media) || !File.Exists(media)))
+        if (!noDisc && (!cfg.TryGetValue(key, out media) || !File.Exists(media)))
         {
             media = SelectMedia(pm);
             if (media == null) return null;
         }
-        return new GameRequest { PiratesMoon = pm, UsesRip = rip, GameRoot = gameRoot, Media = media };
+        return new GameRequest { PiratesMoon = pm, RequiresDisc = !noDisc, GameRoot = gameRoot, Media = media };
     }
 
     public static void Run(GameRequest request, Action<string> report)
@@ -246,10 +278,21 @@ internal static class LauncherRuntime
             "; OS=" + Environment.OSVersion.VersionString + "; 64-bit OS=" + Environment.Is64BitOperatingSystem + ".");
         InstalledProcessScope.StopAudioPlayers(request.GameRoot, Log);
         Thread.Sleep(2000);
-        if (!request.UsesRip)
+        if (request.RequiresDisc)
         {
             report("Mounting and verifying disc image...");
             mediaMount = IsoMountSession.Attach(request.Media, Log);
+        }
+        try
+        {
+            GameControlStorage.EnsureWritable(request.GameRoot);
+            Log("Control-profile storage is writable.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Preserve game launch for older Program Files installations. New
+            // setup runs create this storage under the writable default path.
+            Log("Warning: " + ex.Message);
         }
         SetRegistry(request.GameRoot, request.PiratesMoon);
 

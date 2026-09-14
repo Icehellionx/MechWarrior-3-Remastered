@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param()
+param(
+    [ValidatePattern('^[A-Za-z0-9._-]+\.exe$')]
+    [string]$SetupFileName = 'MechWarrior-3-Remastered-Setup.exe'
+)
 
 $ErrorActionPreference = 'Stop'
 $releaseRoot = $PSScriptRoot
@@ -22,15 +25,34 @@ function Copy-ReleaseFile {
 # Build the small runtime programs first so they become part of the one-file setup payload.
 $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $csc -PathType Leaf)) { throw 'The Windows .NET Framework C# compiler is unavailable.' }
+$nlayerPackage = Join-Path $releaseRoot 'third_party\NLayer-1.16.0\NLayer.1.16.0.nupkg'
+$nlayerExpectedHash = 'E0E112C3BFC3B4F49E87CC4855B0F3DC6AC28D257A58B6A4F22098F8D0D4A9B9'
+if ((Get-FileHash -LiteralPath $nlayerPackage -Algorithm SHA256).Hash -ne $nlayerExpectedHash) {
+    throw 'The pinned NLayer 1.16.0 package hash does not match the reviewed input.'
+}
+$nlayerAssembly = Join-Path $objRoot 'dependencies\NLayer.dll'
+New-Item -ItemType Directory -Path (Split-Path -Parent $nlayerAssembly) -Force | Out-Null
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$packageArchive = [IO.Compression.ZipFile]::OpenRead($nlayerPackage)
+try {
+    $entry = $packageArchive.GetEntry('lib/netstandard2.0/NLayer.dll')
+    if (-not $entry) { throw 'The pinned NLayer package is missing its netstandard2.0 assembly.' }
+    [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $nlayerAssembly, $true)
+}
+finally { $packageArchive.Dispose() }
+$netStandard = Get-ChildItem -LiteralPath 'C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework' -Filter netstandard.dll -Recurse |
+    Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+if (-not $netStandard) { throw 'The .NET Framework netstandard reference facade is unavailable.' }
 $cdAudioPlayer = Join-Path $payloadRoot 'compat\cdaudioplr.exe'
 New-Item -ItemType Directory -Path (Split-Path -Parent $cdAudioPlayer) -Force | Out-Null
-& $csc /nologo /target:winexe /platform:x86 /optimize+ "/out:$cdAudioPlayer" "$releaseRoot\src\CdAudioPlayer.cs"
+& $csc /nologo /target:winexe /platform:x86 /optimize+ "/out:$cdAudioPlayer" "/reference:$nlayerAssembly" "/reference:$netStandard" "$releaseRoot\src\CdAudioPlayer.cs" "$releaseRoot\src\Mp3WaveOutPlayer.cs"
 if ($LASTEXITCODE) { throw "CD audio player compilation failed with exit code $LASTEXITCODE." }
+Copy-ReleaseFile $nlayerAssembly (Join-Path $payloadRoot 'compat\NLayer.dll')
 $launcher = Join-Path $payloadRoot 'MW3Launcher.exe'
-& $csc /nologo /target:winexe /platform:anycpu /optimize+ "/win32manifest:$releaseRoot\src\launcher.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/resource:$releaseRoot\assets\MW3-Game.png,MW3.Game.png" "/resource:$releaseRoot\assets\Pirates-Moon-Game.png,PiratesMoon.Game.png" "/resource:$releaseRoot\assets\MW3-Manual-Cover.png,MW3.ManualCover.png" "/resource:$releaseRoot\assets\Pirates-Moon-Manual-Cover.png,PiratesMoon.ManualCover.png" "/out:$launcher" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "$releaseRoot\src\Launcher.cs" "$releaseRoot\src\LauncherRecovery.cs" "$releaseRoot\src\InstalledProcessScope.cs" "$releaseRoot\src\GameInstallRegistry.cs"
+& $csc /nologo /target:winexe /platform:anycpu /optimize+ "/win32manifest:$releaseRoot\src\launcher.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/resource:$releaseRoot\assets\MW3-Game.png,MW3.Game.png" "/resource:$releaseRoot\assets\Pirates-Moon-Game.png,PiratesMoon.Game.png" "/resource:$releaseRoot\assets\MW3-Manual-Cover.png,MW3.ManualCover.png" "/resource:$releaseRoot\assets\Pirates-Moon-Manual-Cover.png,PiratesMoon.ManualCover.png" "/out:$launcher" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "$releaseRoot\src\Launcher.cs" "$releaseRoot\src\LauncherRecovery.cs" "$releaseRoot\src\InstalledProcessScope.cs" "$releaseRoot\src\GameInstallRegistry.cs" "$releaseRoot\src\GameControlStorage.cs"
 if ($LASTEXITCODE) { throw "Launcher compilation failed with exit code $LASTEXITCODE." }
 $uninstaller = Join-Path $payloadRoot 'Uninstall.exe'
-& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$uninstaller" /reference:System.Windows.Forms.dll "$releaseRoot\src\Uninstaller.cs" "$releaseRoot\src\InstalledProcessScope.cs" "$releaseRoot\src\GameInstallRegistry.cs"
+& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$uninstaller" /reference:System.Windows.Forms.dll /reference:Microsoft.CSharp.dll "$releaseRoot\src\Uninstaller.cs" "$releaseRoot\src\InstalledProcessScope.cs" "$releaseRoot\src\GameInstallRegistry.cs" "$releaseRoot\src\GameSaveStorage.cs" "$releaseRoot\src\LauncherShortcutPolicy.cs"
 if ($LASTEXITCODE) { throw "Uninstaller compilation failed with exit code $LASTEXITCODE." }
 
 # Extraction tool: used temporarily and not left in the installed game.
@@ -74,6 +96,8 @@ Copy-ReleaseFile "$projectRoot\tools\DDrawCompat\README.md" "$payloadRoot\Third-
 Copy-ReleaseFile "$projectRoot\tools\ZipperFixup\LICENSE" "$payloadRoot\Third-Party\ZipperFixup-LICENSE.txt"
 Copy-ReleaseFile "$projectRoot\tools\ZipperFixup\README.md" "$payloadRoot\Third-Party\ZipperFixup-README.md"
 Copy-ReleaseFile "$projectRoot\tools\cdaudio-winmm\README.md" "$payloadRoot\Third-Party\cdaudio-winmm-README.md"
+Copy-ReleaseFile "$releaseRoot\third_party\cdaudio-winmm\LICENSE.txt" "$payloadRoot\Third-Party\cdaudio-winmm-LICENSE.txt"
+Copy-ReleaseFile "$releaseRoot\third_party\NLayer-1.16.0\LICENSE.txt" "$payloadRoot\Third-Party\NLayer-LICENSE.txt"
 Copy-ReleaseFile "$releaseRoot\LICENSE" "$payloadRoot\Third-Party\MW3-Remastered-Installer-LICENSE.txt"
 
 $payloadManifest = Get-ChildItem -LiteralPath $payloadRoot -Recurse -File | Sort-Object FullName | ForEach-Object {
@@ -95,8 +119,8 @@ if ($forbidden) { throw "Forbidden release input detected: $($forbidden.FullName
 
 $payloadZip = Join-Path $objRoot 'payload.zip'
 Compress-Archive -Path (Join-Path $payloadRoot '*') -DestinationPath $payloadZip -CompressionLevel Optimal
-$setup = Join-Path $distRoot 'MechWarrior-3-Remastered-Setup.exe'
-& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$setup" "/resource:$payloadZip,Payload.zip" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll "$releaseRoot\src\Installer.cs" "$releaseRoot\src\LauncherRecovery.cs" "$releaseRoot\src\GameInstallRegistry.cs"
+$setup = Join-Path $distRoot $SetupFileName
+& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$setup" "/resource:$payloadZip,Payload.zip" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll "$releaseRoot\src\Installer.cs" "$releaseRoot\src\LauncherRecovery.cs" "$releaseRoot\src\GameInstallRegistry.cs" "$releaseRoot\src\PiratesMoonMedia.cs" "$releaseRoot\src\GameControlStorage.cs" "$releaseRoot\src\GameSaveStorage.cs" "$releaseRoot\src\LauncherShortcutPolicy.cs"
 if ($LASTEXITCODE) { throw "Installer compilation failed with exit code $LASTEXITCODE." }
 
 $result = Get-Item -LiteralPath $setup

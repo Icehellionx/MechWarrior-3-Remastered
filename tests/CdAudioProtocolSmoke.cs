@@ -26,9 +26,10 @@ internal static class CdAudioProtocolSmoke
 
     private static int Main(string[] args)
     {
-        if (args.Length != 2) return Fail("Usage: CdAudioProtocolSmoke helper.exe expected-track-count");
+        if (args.Length < 2 || args.Length > 3) return Fail("Usage: CdAudioProtocolSmoke helper.exe expected-track-count [playback]");
         int expected;
         if (!Int32.TryParse(args[1], out expected)) return Fail("Invalid expected track count.");
+        bool verifyPlayback = args.Length == 3 && args[2].Equals("playback", StringComparison.OrdinalIgnoreCase);
         IntPtr replies = CreateMailslot(@"\\.\Mailslot\winmm_Mailslot", 0, 5000, IntPtr.Zero);
         if (replies == InvalidHandle) return Fail("Could not create wrapper reply mailslot: " + Marshal.GetLastWin32Error());
 
@@ -44,17 +45,23 @@ internal static class CdAudioProtocolSmoke
             if (player == null) return Fail("Could not start the CD audio helper.");
             if (!SendWithRetry("1 mci_tracks", 3000)) return Fail("Helper command mailslot did not become ready.");
 
-            byte[] buffer = new byte[64];
-            uint read;
-            if (!ReadFile(replies, buffer, (uint)buffer.Length, out read, IntPtr.Zero))
-                return Fail("Did not receive a helper response: " + Marshal.GetLastWin32Error());
-            string response = Encoding.ASCII.GetString(buffer, 0, (int)read).TrimEnd('\0', ' ', '\r', '\n');
+            string response = ReadReply(replies);
+            if (response == null) return Fail("Did not receive a helper response: " + Marshal.GetLastWin32Error());
             if (!response.Equals(expected + " tracks", StringComparison.Ordinal))
                 return Fail("Unexpected track response: " + response);
 
+            if (verifyPlayback)
+            {
+                if (!SendWithRetry("2 mci_from", 1000) || ReadReply(replies) != "2 mode") return Fail("Helper did not start track 02 playback.");
+                Thread.Sleep(150);
+                if (!SendWithRetry("1 mci_pause", 1000) || ReadReply(replies) != "1 mode") return Fail("Helper did not pause playback.");
+                if (!SendWithRetry("1 mci_resume", 1000) || ReadReply(replies) != "2 mode") return Fail("Helper did not resume playback.");
+                if (!SendWithRetry("1 mci_stop", 1000) || ReadReply(replies) != "1 mode") return Fail("Helper did not stop playback.");
+            }
+
             if (!SendWithRetry("1 exit", 1000)) return Fail("Could not send helper shutdown command.");
             if (!player.WaitForExit(3000)) return Fail("Helper did not exit after the protocol shutdown command.");
-            Console.WriteLine("CD audio protocol: passed (" + response + ")");
+            Console.WriteLine("CD audio protocol: passed (" + response + (verifyPlayback ? ", play/pause/resume/stop" : "") + ")");
             return 0;
         }
         finally
@@ -63,6 +70,14 @@ internal static class CdAudioProtocolSmoke
             if (player != null && !player.HasExited) { try { player.Kill(); } catch { } }
             if (player != null) player.Dispose();
         }
+    }
+
+    private static string ReadReply(IntPtr replies)
+    {
+        byte[] buffer = new byte[64];
+        uint read;
+        if (!ReadFile(replies, buffer, (uint)buffer.Length, out read, IntPtr.Zero)) return null;
+        return Encoding.ASCII.GetString(buffer, 0, (int)read).TrimEnd('\0', ' ', '\r', '\n');
     }
 
     private static bool SendWithRetry(string message, int timeoutMs)
