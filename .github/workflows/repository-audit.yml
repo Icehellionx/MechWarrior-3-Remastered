@@ -53,7 +53,7 @@ jobs:
           New-Item -ItemType Directory -Path obj\empty -Force | Out-Null
           [IO.File]::WriteAllText((Join-Path (Resolve-Path obj\empty) 'placeholder.txt'), 'compile-only payload')
           Compress-Archive -Path obj\empty -DestinationPath obj\empty-payload.zip
-          & $csc /nologo /target:winexe /platform:x64 /optimize+ /win32manifest:src\app.manifest /win32icon:assets\MW3-Remastered.ico /out:obj\Setup.exe /resource:obj\empty-payload.zip,Payload.zip /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll src\Installer.cs src\LauncherRecovery.cs src\GameInstallRegistry.cs src\PiratesMoonMedia.cs src\GameControlStorage.cs src\GameSaveStorage.cs src\LauncherShortcutPolicy.cs
+          & $csc /nologo /target:winexe /platform:x64 /optimize+ /win32manifest:src\app.manifest /win32icon:assets\MW3-Remastered.ico /out:obj\Setup.exe /resource:obj\empty-payload.zip,Payload.zip /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll src\Installer.cs src\LauncherRecovery.cs src\GameInstallRegistry.cs src\PiratesMoonMedia.cs src\GameControlStorage.cs src\GameSaveStorage.cs src\LauncherShortcutPolicy.cs src\SoundArchiveLeveler.cs
           if ($LASTEXITCODE) { throw 'Installer compilation failed.' }
           & $csc /nologo /target:exe /platform:anycpu /optimize+ /out:obj\GameInstallRegistrySmoke.exe tests\GameInstallRegistrySmoke.cs src\GameInstallRegistry.cs
           if ($LASTEXITCODE) { throw 'Game install registry test compilation failed.' }

@@ -6,9 +6,9 @@ This project is not affiliated with or endorsed by MicroProse, Hasbro Interactiv
 
 ## ⬇️ Download the installer
 
-### [Download MechWarrior 3 Remastered v1.2.6 Setup.exe](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/MechWarrior-3-Remastered-Setup.exe)
+### [Download MechWarrior 3 Remastered v1.2.7 Setup.exe](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/MechWarrior-3-Remastered-Setup.exe)
 
-Current release: [v1.2.6](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/tag/v1.2.6)
+Current release: [v1.2.7](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/tag/v1.2.7)
 
 Renderer source and standalone package:
 [DDrawCompat-MW3](https://github.com/Icehellionx/DDrawCompat-MW3). This is the
