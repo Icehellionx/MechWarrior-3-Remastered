@@ -57,6 +57,7 @@ if ($LASTEXITCODE) { throw "Uninstaller compilation failed with exit code $LASTE
 
 # Extraction tool: used temporarily and not left in the installed game.
 Copy-ReleaseFile "$projectRoot\tools\UnshieldSharp\UnshieldSharp.exe" "$payloadRoot\tools\UnshieldSharp.exe"
+Copy-ReleaseFile "$releaseRoot\tools\Use-SoundLevelCandidate.ps1" "$payloadRoot\tools\Use-SoundLevelCandidate.ps1"
 
 # Official patch payload only; no base-game or expansion content is copied here.
 Copy-Item -LiteralPath "$projectRoot\staging\patch12-payload" -Destination "$payloadRoot\patch12" -Recurse
@@ -120,7 +121,7 @@ if ($forbidden) { throw "Forbidden release input detected: $($forbidden.FullName
 $payloadZip = Join-Path $objRoot 'payload.zip'
 Compress-Archive -Path (Join-Path $payloadRoot '*') -DestinationPath $payloadZip -CompressionLevel Optimal
 $setup = Join-Path $distRoot $SetupFileName
-& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$setup" "/resource:$payloadZip,Payload.zip" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll "$releaseRoot\src\Installer.cs" "$releaseRoot\src\LauncherRecovery.cs" "$releaseRoot\src\GameInstallRegistry.cs" "$releaseRoot\src\PiratesMoonMedia.cs" "$releaseRoot\src\GameControlStorage.cs" "$releaseRoot\src\GameSaveStorage.cs" "$releaseRoot\src\LauncherShortcutPolicy.cs"
+& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$setup" "/resource:$payloadZip,Payload.zip" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll "$releaseRoot\src\Installer.cs" "$releaseRoot\src\LauncherRecovery.cs" "$releaseRoot\src\GameInstallRegistry.cs" "$releaseRoot\src\PiratesMoonMedia.cs" "$releaseRoot\src\GameControlStorage.cs" "$releaseRoot\src\GameSaveStorage.cs" "$releaseRoot\src\LauncherShortcutPolicy.cs" "$releaseRoot\src\SoundArchiveLeveler.cs"
 if ($LASTEXITCODE) { throw "Installer compilation failed with exit code $LASTEXITCODE." }
 
 $result = Get-Item -LiteralPath $setup

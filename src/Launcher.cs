@@ -67,6 +67,21 @@ internal sealed class LauncherForm : Form
         mw3Manual.Click += delegate { OpenManual("MechWarrior 3 Manual.pdf"); };
         pmManual.Click += delegate { OpenManual("MechWarrior 3 Pirate's Moon Manual.pdf"); };
 
+        Button controls = new Button
+        {
+            Text = "CONTROLS",
+            Location = new Point(494, 402),
+            Size = new Size(105, 30),
+            BackColor = Panel,
+            ForeColor = Color.FromArgb(180, 184, 188),
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
+        };
+        controls.FlatAppearance.BorderColor = Color.FromArgb(91, 25, 29);
+        controls.Click += delegate { ShowControlsHelp(); };
+        actions.Add(controls);
+        Controls.Add(controls);
+
         Button uninstall = new Button
         {
             Text = "UNINSTALL",
@@ -87,10 +102,21 @@ internal sealed class LauncherForm : Form
         status.Font = new Font("Consolas", 9F, FontStyle.Bold);
         status.ForeColor = Color.FromArgb(145, 150, 154);
         status.Location = new Point(25, 407);
-        status.Size = new Size(570, 23);
+        status.Size = new Size(455, 23);
         status.TextAlign = ContentAlignment.MiddleLeft;
         Controls.Add(new Label { BackColor = Color.FromArgb(66, 67, 70), Location = new Point(24, 389), Size = new Size(696, 1) });
         Controls.Add(status);
+    }
+
+    private void ShowControlsHelp()
+    {
+        string message = "To remap controls, launch a game and open Options > Controls. Choose Mouse/Keybd Default or Joystick Default, change bindings, then select Save. Each game keeps its own controls.\n\n" +
+            "Connect a joystick before starting the game. The original game uses legacy DirectInput and may not recognize every modern controller. Calibrate your device in Windows Game Controllers. If throttle or torso twist moves on its own, clear the Joystick Z axis or Joystick Rz axis binding in the game's Controls screen.\n\nOpen Windows Game Controllers now?";
+        if (MessageBox.Show(this, message, "Controls and joystick setup", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+        {
+            try { Process.Start("joy.cpl"); }
+            catch (Exception ex) { ShowError("Could not open Windows Game Controllers: " + ex.Message); }
+        }
     }
 
     private Button MakeTile(string title, string subtitle, Point location, Image image)
@@ -248,7 +274,7 @@ internal static class LauncherRuntime
             (mediaType.Equals("Rip", StringComparison.OrdinalIgnoreCase) || mediaType.Equals("NoDisc", StringComparison.OrdinalIgnoreCase));
         string media = null;
         string key = pm ? "PiratesMoonIso" : "Mw3Iso";
-        if (!noDisc && (!cfg.TryGetValue(key, out media) || !File.Exists(media)))
+        if (!noDisc && (!cfg.TryGetValue(key, out media) || !DiscMediaSession.IsAvailable(media)))
         {
             media = SelectMedia(pm);
             if (media == null) return null;
@@ -269,7 +295,7 @@ internal static class LauncherRuntime
         if (InstalledProcessScope.HasRunningGame(request.GameRoot))
             throw new InvalidOperationException("Close the running MechWarrior game before starting another title.");
 
-        IsoMountSession mediaMount = null;
+        DiscMediaSession mediaMount = null;
         try
         {
         report("Preparing " + (request.PiratesMoon ? "Pirate's Moon" : "MechWarrior 3") + "...");
@@ -280,8 +306,8 @@ internal static class LauncherRuntime
         Thread.Sleep(2000);
         if (request.RequiresDisc)
         {
-            report("Mounting and verifying disc image...");
-            mediaMount = IsoMountSession.Attach(request.Media, Log);
+            report("Checking selected disc media...");
+            mediaMount = DiscMediaSession.Open(request.Media, Log);
         }
         try
         {
@@ -360,7 +386,7 @@ internal static class LauncherRuntime
             InstalledProcessScope.StopAudioPlayers(request.GameRoot, Log);
             if (mediaMount != null)
             {
-                report(mediaMount.OwnsMount ? "Ejecting disc image..." : "Leaving pre-existing disc image mounted...");
+                if (mediaMount.OwnsMount) report("Ejecting disc image...");
                 mediaMount.Dispose();
             }
         }
@@ -463,8 +489,19 @@ internal static class LauncherRuntime
 
     private static string SelectMedia(bool pm)
     {
-        if (pm)
-            MessageBox.Show("This Pirate's Moon installation was made from an ISO, which is required when launching. RIP ZIP/folder installations do not require their source after setup.", "Locate Pirate's Moon ISO", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        DialogResult choice = MessageBox.Show(
+            "Choose Yes to locate the original ISO, or No to select its already mounted CD drive/folder. Keep a mapped CD drive available while playing under Wine.",
+            "Locate " + (pm ? "Pirate's Moon" : "MechWarrior 3") + " disc",
+            MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information);
+        if (choice == DialogResult.Cancel) return null;
+        if (choice == DialogResult.No)
+        {
+            using (FolderBrowserDialog picker = new FolderBrowserDialog())
+            {
+                picker.Description = "Select the readable root of the mounted game disc";
+                return picker.ShowDialog() == DialogResult.OK ? picker.SelectedPath : null;
+            }
+        }
         using (OpenFileDialog picker = new OpenFileDialog())
         {
             picker.Title = "Locate your " + (pm ? "Pirate's Moon" : "MechWarrior 3") + " ISO";

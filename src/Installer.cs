@@ -26,6 +26,7 @@ internal sealed class InstallerForm : Form
     private readonly CheckBox installPm = new CheckBox();
     private readonly TextBox pmMedia = new TextBox();
     private readonly TextBox destination = new TextBox();
+    private readonly CheckBox levelSounds = new CheckBox();
     private readonly Button install = new Button();
     private readonly ProgressBar progress = new ProgressBar();
     private readonly Label status = new Label();
@@ -33,16 +34,21 @@ internal sealed class InstallerForm : Form
     public InstallerForm()
     {
         Text = "MechWarrior 3 Remastered Setup";
-        ClientSize = new Size(760, 365);
+        ClientSize = new Size(760, 405);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
         Font = new Font("Segoe UI", 9F);
 
         Label heading = new Label { Text = "Install MechWarrior 3 Remastered", Font = new Font("Segoe UI", 16F, FontStyle.Bold), AutoSize = true, Location = new Point(22, 18) };
-        Label intro = new Label { Text = "Game media is not included. Select your legally owned MW3 ISO; Pirate's Moon accepts an ISO, RIP, or ISO-version ZIP containing BIN/CUE media.", AutoSize = false, Size = new Size(700, 42), Location = new Point(25, 55) };
+        Label intro = new Label { Text = "Game media is not included. Select your legally owned MW3 ISO or an already mounted disc folder; Pirate's Moon accepts an ISO, RIP, or ISO-version ZIP containing BIN/CUE media.", AutoSize = false, Size = new Size(700, 42), Location = new Point(25, 55) };
         Controls.Add(heading); Controls.Add(intro);
-        AddPicker("MechWarrior 3 ISO (required)", mw3Iso, 105, PickMw3);
+        AddPicker("MechWarrior 3 ISO or mounted disc folder (required)", mw3Iso, 105, PickMw3, "browseMw3");
+        mw3Iso.Size = new Size(525, 24);
+        Controls["browseMw3"].Location = new Point(550, 125);
+        Controls["browseMw3"].Size = new Size(90, 26);
+        Button browseMw3Folder = new Button { Text = "Folder...", Location = new Point(650, 125), Size = new Size(80, 26) };
+        browseMw3Folder.Click += PickMw3Folder; Controls.Add(browseMw3Folder);
 
         installPm.Text = "Also install Pirate's Moon from an ISO, RIP ZIP/folder, or ISO-version ZIP (optional)";
         installPm.AutoSize = true; installPm.Location = new Point(25, 166);
@@ -61,9 +67,13 @@ internal sealed class InstallerForm : Form
         // legacy contract without UAC prompts or writable system-wide binaries.
         destination.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "MechWarrior 3 Remastered");
 
-        progress.Location = new Point(25, 301); progress.Size = new Size(580, 20); progress.Style = ProgressBarStyle.Marquee; progress.Visible = false;
-        status.Location = new Point(25, 327); status.Size = new Size(580, 25);
-        install.Text = "Install"; install.Location = new Point(625, 298); install.Size = new Size(105, 32);
+        levelSounds.Text = "Lower seven unusually loud MW3 effects (experimental; originals backed up)";
+        levelSounds.AutoSize = true; levelSounds.Location = new Point(25, 299);
+        Controls.Add(levelSounds);
+
+        progress.Location = new Point(25, 341); progress.Size = new Size(580, 20); progress.Style = ProgressBarStyle.Marquee; progress.Visible = false;
+        status.Location = new Point(25, 367); status.Size = new Size(580, 25);
+        install.Text = "Install"; install.Location = new Point(625, 338); install.Size = new Size(105, 32);
         install.Click += async delegate { await InstallAsync(); };
         Controls.Add(progress); Controls.Add(status); Controls.Add(install);
     }
@@ -78,6 +88,15 @@ internal sealed class InstallerForm : Form
     }
 
     private void PickMw3(object sender, EventArgs e) { PickIso(mw3Iso, "Select your MechWarrior 3 ISO"); }
+    private void PickMw3Folder(object sender, EventArgs e)
+    {
+        using (FolderBrowserDialog dialog = new FolderBrowserDialog())
+        {
+            dialog.Description = "Select the readable root of your mounted MechWarrior 3 disc";
+            if (Directory.Exists(mw3Iso.Text)) dialog.SelectedPath = mw3Iso.Text;
+            if (dialog.ShowDialog(this) == DialogResult.OK) mw3Iso.Text = dialog.SelectedPath;
+        }
+    }
     private void PickPm(object sender, EventArgs e)
     {
         using (OpenFileDialog dialog = new OpenFileDialog())
@@ -116,7 +135,7 @@ internal sealed class InstallerForm : Form
 
     private async Task InstallAsync()
     {
-        if (!File.Exists(mw3Iso.Text)) { MessageBox.Show(this, "Select a valid MechWarrior 3 ISO."); return; }
+        if (!DiscMediaSession.IsAvailable(mw3Iso.Text)) { MessageBox.Show(this, "Select a valid MechWarrior 3 ISO or mounted disc folder."); return; }
         if (installPm.Checked && !File.Exists(pmMedia.Text) && !Directory.Exists(pmMedia.Text)) { MessageBox.Show(this, "Select a valid Pirate's Moon ISO, RIP ZIP/folder, or ISO-version ZIP—or clear the optional expansion box."); return; }
         string finalRoot = Path.GetFullPath(destination.Text.Trim());
         if (!GameSaveStorage.IsEmptyOrPreservedSavesOnly(finalRoot)) { MessageBox.Show(this, GameSaveStorage.DestinationBlockedMessage(finalRoot)); return; }
@@ -124,7 +143,8 @@ internal sealed class InstallerForm : Form
         install.Enabled = false; progress.Visible = true; status.Text = "Preparing installer payload...";
         try
         {
-            await Task.Run(delegate { PerformInstall(finalRoot); });
+            bool applySoundLevels = levelSounds.Checked;
+            await Task.Run(delegate { PerformInstall(finalRoot, applySoundLevels); });
             progress.Visible = false; status.Text = "Installation complete.";
             MessageBox.Show(this, "MechWarrior 3 Remastered is installed. Use the desktop launcher to start either game or open either original manual.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
             Close();
@@ -138,7 +158,7 @@ internal sealed class InstallerForm : Form
 
     private void SetStatus(string text) { BeginInvoke((Action)delegate { status.Text = text; }); }
 
-    private void PerformInstall(string finalRoot)
+    private void PerformInstall(string finalRoot, bool applySoundLevels)
     {
         if (!GameSaveStorage.IsEmptyOrPreservedSavesOnly(finalRoot))
             throw new InvalidOperationException("The destination contains files other than preserved saved pilots.");
@@ -150,9 +170,9 @@ internal sealed class InstallerForm : Form
             Directory.CreateDirectory(stageRoot); Directory.CreateDirectory(payloadRoot);
             ExtractPayload(payloadRoot);
 
-            SetStatus("Extracting MechWarrior 3 from your ISO...");
+            SetStatus("Extracting MechWarrior 3 from selected media...");
             string mw3Root = Path.Combine(stageRoot, "MechWarrior 3");
-            using (IsoMountSession mw3Media = IsoMountSession.Attach(mw3Iso.Text, SetStatus))
+            using (DiscMediaSession mw3Media = DiscMediaSession.Open(mw3Iso.Text, SetStatus))
             {
                 ExtractGame(mw3Media.Root, mw3Root, Path.Combine(payloadRoot, "tools", "UnshieldSharp.exe"));
                 CopyVideo(mw3Media.Root, mw3Root);
@@ -163,6 +183,11 @@ internal sealed class InstallerForm : Form
             string patchedExe = Path.Combine(mw3Root, "Mech3.exe");
             if (!File.Exists(patchedExe) || new FileInfo(patchedExe).Length != 2384384)
                 throw new InvalidDataException("The selected MW3 media/patch did not produce the supported US v1.2 executable.");
+            if (applySoundLevels)
+            {
+                SetStatus("Leveling selected game effects and saving originals...");
+                SoundArchiveLeveler.ApplyToStagedGame(mw3Root);
+            }
             InstallCompatibility(payloadRoot, mw3Root, false);
             InstallCodec(mw3Root);
 
@@ -210,6 +235,7 @@ internal sealed class InstallerForm : Form
             File.Copy(Path.Combine(payloadRoot, "REDISTRIBUTION.md"), Path.Combine(stageRoot, "REDISTRIBUTION.md"), true);
             File.Copy(Path.Combine(payloadRoot, "PAYLOAD_MANIFEST.sha256"), Path.Combine(stageRoot, "PAYLOAD_MANIFEST.sha256"), true);
             File.Copy(Path.Combine(payloadRoot, "README.txt"), Path.Combine(stageRoot, "README.txt"), true);
+            File.Copy(Path.Combine(payloadRoot, "tools", "Use-SoundLevelCandidate.ps1"), Path.Combine(stageRoot, "Use-SoundLevelCandidate.ps1"), true);
             File.Copy(Path.Combine(payloadRoot, "Uninstall.exe"), Path.Combine(stageRoot, "Uninstall.exe"), true);
             CopyDirectory(Path.Combine(payloadRoot, "Third-Party"), Path.Combine(stageRoot, "Third-Party"));
             CopyDirectory(Path.Combine(payloadRoot, "Manuals"), Path.Combine(stageRoot, "Manuals"));

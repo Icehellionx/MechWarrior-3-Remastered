@@ -68,6 +68,8 @@ Keep the MechWarrior 3 ISO at the path selected during setup. Pirate's Moon medi
 - Starts with desktop-resolution internal rendering and 4× MSAA. If Pirate's Moon loses its primary DirectDraw surface during the borderless startup transition, the compatibility wrapper restores it and retries the failed attachment in-process before the launcher advances through its five ordered recovery profiles.
 - Keeps the legacy 640×480 startup-video mode available alongside the tested 1024×768 gameplay mode; DDrawCompat scales gameplay to the desktop resolution. Changing resolution from the legacy in-game menu remains unsupported because it can crash the game.
 - Creates and checks writable `keys` storage so keyboard, mouse, joystick/HOTAS mappings can be saved without altering existing profiles.
+- The launcher offers **CONTROLS** guidance for the game's own remapping screen and can open Windows Game Controllers for joystick calibration. Device recognition and force feedback still need a real joystick test.
+- Offers an optional, experimental reduction for seven loud base-game effects. Setup changes only verified user-supplied sound banks, saves the originals in `OriginalSoundArchives`, and installs `Use-SoundLevelCandidate.ps1` so they can be restored. Pirate's Moon effects and CD music are unchanged.
 - Restores the known-good Direct3D adapter and video-mode values before each recovery attempt and records launch diagnostics under `%LOCALAPPDATA%\MechWarrior 3 Remastered\launcher.log`.
 - Starts CD music at 60% on first launch and preserves later in-game volume changes. MP3 decoding uses the pinned MIT-licensed NLayer decoder and Windows `waveOut`, avoiding the legacy MCI MP3 driver. The audio helper shuts down with the game, including when the launcher is interrupted, so it does not retain installation-file locks.
 - Registers an uninstaller in Windows Apps/Installed apps.
@@ -85,6 +87,11 @@ See [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [THIRD_PARTY_NOTIC
 - The release is not Authenticode-signed, so Windows cannot display a verified publisher.
 - The US MW3 disc, common Pirate's Moon RIP folder/ZIP, and `MechWarrior-3-Pirates-Moon_Win_EN_ISO-Version.zip` BIN/CUE paths have passed extraction and patching tests. The ISO-version archive test covers safe expansion, Mode-1 conversion, mount/eject, InstallShield extraction, the true disc-executable transformation, compatibility installation, and the shared installed-game/audio contract.
 - This project does not promise compatibility with other regions or modified disc images.
+- The sound option has passed archive integrity and install/restore smoke tests but has not been checked by listening in the reported mission. The game uses legacy DirectInput; the installer verifies writable mappings and game input files, but modern joystick axis capture and force feedback are device-dependent.
+
+### Wine/Linux disc selection
+
+Wine does not provide the Windows `Mount-DiskImage`/`Get-DiskImage`/`Get-Volume` pipeline used by the ISO picker. On Linux, mount your own MW3 ISO with your Linux desktop or distribution tools, expose that mounted directory as a CD-ROM drive in the same Wine prefix, then choose **Folder...** in setup and select the readable disc root. Keep the mount and Wine drive mapping available when launching the base game. The launcher accepts the saved folder path and leaves the external mount alone. Selecting an extracted disc folder may allow installation, but the base game's runtime disc check can still require a Wine CD-ROM mapping. This path has a deterministic folder-validation test and Windows build/smoke coverage; a complete install and launch under Wine still requires field testing.
 
 ## Reporting a bug
 

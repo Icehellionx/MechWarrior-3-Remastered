@@ -164,6 +164,52 @@ internal sealed class VideoRecoveryConfig : IDisposable
     }
 }
 
+internal sealed class DiscMediaSession : IDisposable
+{
+    private readonly IsoMountSession iso;
+    public string Root { get; private set; }
+    public bool OwnsMount { get { return iso != null && iso.OwnsMount; } }
+
+    private DiscMediaSession(string root, IsoMountSession iso)
+    {
+        Root = root;
+        this.iso = iso;
+    }
+
+    public static bool IsAvailable(string path)
+    {
+        return !String.IsNullOrWhiteSpace(path) && (File.Exists(path) || Directory.Exists(path));
+    }
+
+    public static DiscMediaSession Open(string path, Action<string> log)
+    {
+        if (Directory.Exists(path))
+        {
+            string root = Path.GetFullPath(path);
+            bool hasInstaller = false;
+            bool hasGame = false;
+            foreach (string file in Directory.GetFiles(root, "*", SearchOption.AllDirectories))
+            {
+                string name = Path.GetFileName(file);
+                if (name.Equals("Mech3.exe", StringComparison.OrdinalIgnoreCase)) hasGame = true;
+                if (!name.Equals("data1.hdr", StringComparison.OrdinalIgnoreCase)) continue;
+                foreach (string sibling in Directory.GetFiles(Path.GetDirectoryName(file)))
+                    if (Path.GetFileName(sibling).Equals("data1.cab", StringComparison.OrdinalIgnoreCase))
+                    { hasInstaller = true; break; }
+            }
+            if (!hasInstaller && !hasGame)
+                throw new InvalidDataException("The selected folder does not contain recognizable MechWarrior 3 disc files.");
+            if (log != null) log("Using the selected readable disc folder; keep its Wine drive mapping available while playing.");
+            return new DiscMediaSession(root, null);
+        }
+        if (!File.Exists(path)) throw new FileNotFoundException("The selected disc image or folder is unavailable.", path);
+        IsoMountSession iso = IsoMountSession.Attach(path, log);
+        return new DiscMediaSession(iso.Root, iso);
+    }
+
+    public void Dispose() { if (iso != null) iso.Dispose(); }
+}
+
 internal sealed class IsoMountSession : IDisposable
 {
     private readonly string imagePath;

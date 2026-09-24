@@ -58,6 +58,9 @@ function Install-DiscGameSmoke {
     }
     else {
         Invoke-InstallerMethod $InstallerType $BindingFlags 'ApplyPatch12' ([object[]]@([string](Join-Path $Payload 'patch12'), $GameRoot))
+        $leveler = $InstallerType.Assembly.GetType('SoundArchiveLeveler')
+        $apply = $leveler.GetMethod('ApplyToStagedGame', $BindingFlags)
+        $apply.Invoke($null, [object[]]@([string]$GameRoot))
     }
     Invoke-InstallerMethod $InstallerType $BindingFlags 'InstallCompatibility' ([object[]]@($Payload, $GameRoot, $PiratesMoon))
 }
@@ -77,6 +80,18 @@ function Assert-InstalledGameSmoke {
         'common-shaders-master\mw3-remaster\mw3-remaster.cg'
     )
     if ($PiratesMoon) { $required += @('Mech3Msg.dll', 'DATA.TAG') }
+    else {
+        $expected = @{
+            'zbd\soundsH.zbd' = '20AD72D51EAFFB4447A7CE09B408B017CFAA5A7034A82E73B85B539355579BCB'
+            'zbd\soundsL.zbd' = '612F8EDB1E26884AAD04E34F3E73D41D7661F8652F97EB765C8C28EAC9A37D98'
+            'OriginalSoundArchives\soundsH.zbd' = '71C4688E38D59E03D3E0A63C8EF90CCE0359103890904AAAB5DC461647F484A4'
+            'OriginalSoundArchives\soundsL.zbd' = 'E259704B36069339BAD035AE571F7733A6655ED2020C4D7E24B5C8872A3B09C3'
+        }
+        foreach ($relative in $expected.Keys) {
+            $actual = (Get-FileHash -LiteralPath (Join-Path $GameRoot $relative) -Algorithm SHA256).Hash
+            if ($actual -ne $expected[$relative]) { throw "MW3 sound archive mismatch: $relative" }
+        }
+    }
     $tracks = if ($PiratesMoon) { @('track02.mp3', 'track03.mp3', 'track04.mp3') } else { @('track02.mp3', 'track03.mp3') }
     $required += $tracks | ForEach-Object { "mcicda\music\$_" }
     foreach ($relative in $required) {

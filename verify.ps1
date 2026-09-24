@@ -80,7 +80,11 @@ try {
         $uninstallButtons = @($launcherForm.Controls | Where-Object { $_ -is [System.Windows.Forms.Button] -and $_.Text -eq 'UNINSTALL' })
         if ($uninstallButtons.Count -ne 1) { throw 'The launcher must expose exactly one UNINSTALL button.' }
         if ($uninstallButtons[0].Right -ne 720 -or $uninstallButtons[0].Bottom -ne 432) { throw 'The launcher UNINSTALL button is not in the expected bottom-right position.' }
-        Write-Host 'Launcher uninstall action: passed (single bottom-right action).'
+        $controlsButtons = @($launcherForm.Controls | Where-Object { $_ -is [System.Windows.Forms.Button] -and $_.Text -eq 'CONTROLS' })
+        if ($controlsButtons.Count -ne 1 -or $controlsButtons[0].Right -ge $uninstallButtons[0].Left) {
+            throw 'The launcher controls action is missing or overlaps uninstall.'
+        }
+        Write-Host 'Launcher controls and uninstall actions: passed.'
     }
     finally { $launcherForm.Dispose() }
     # Isolate the helper from the payload's winmm proxy. The installed helper
@@ -97,9 +101,21 @@ try {
     if ($Mw3IsoPath) {
         Invoke-WithMountedIso $assembly $Mw3IsoPath {
             param($discRoot)
-            Install-DiscGameSmoke $type $flags $discRoot $game $extractor $payload $false
+            $mediaType = $assembly.GetType('DiscMediaSession', $true)
+            $logger = [Action[string]]{ param($message) Write-Host $message }
+            $folderMedia = $mediaType.GetMethod('Open').Invoke($null, [object[]]@($discRoot, $logger))
+            try {
+                if ($folderMedia.OwnsMount -or $folderMedia.Root -ne $discRoot) {
+                    throw 'The externally mounted disc folder was not preserved as a borrowed media root.'
+                }
+                Install-DiscGameSmoke $type $flags $folderMedia.Root $game $extractor $payload $false
+            }
+            finally { $folderMedia.Dispose() }
+            if (-not (Test-Path -LiteralPath $discRoot -PathType Container)) {
+                throw 'Disposing borrowed disc media unexpectedly ejected its mount.'
+            }
         }
-        $mw3MediaResult = 'passed (mounted ISO, extraction, video copy, official patch)'
+        $mw3MediaResult = 'passed (mounted ISO and borrowed folder, extraction, video copy, official patch)'
         Assert-InstalledGameSmoke $game $false $qualifiedDdrawHash -RequireDiscVideo
     }
     else {

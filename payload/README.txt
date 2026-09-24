@@ -8,4 +8,8 @@ The launcher's UNINSTALL button removes the remaster while preserving saved pilo
 
 The original manuals are installed in the Manuals folder and linked from both the launcher and the MechWarrior 3 Remastered Start-menu group.
 
+Controls: In each game's main menu, open Options > Controls. Choose Mouse/Keybd Default or Joystick Default, make your changes, then select Save. The two games have separate keys folders. For a joystick, connect it before starting the game and calibrate it in Windows Game Controllers (run joy.cpl). The original game recognizes legacy DirectInput devices; newer gamepads may need their own keyboard/mouse mapping software. If a throttle or twist axis moves without input, clear its Joystick Z axis or Joystick Rz axis binding in Controls. Hardware joystick and force feedback behavior varies by device and is not verified by installer setup.
+
+Optional sound leveling changes seven unusually loud base-game effects. It is experimental and leaves Pirate's Moon audio alone. The original sound banks are saved under MechWarrior 3\OriginalSoundArchives. To restore them, close the game and run Use-SoundLevelCandidate.ps1 from PowerShell with -GameRoot followed by the path to the installed MechWarrior 3 folder and -Restore. This effect change has passed archive integrity checks but still needs in-game listening on the reported mission.
+
 This is an unofficial community preservation build. See THIRD_PARTY_NOTICES.md for full credits and source links.

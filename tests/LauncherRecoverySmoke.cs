@@ -18,6 +18,7 @@ internal static class LauncherRecoverySmoke
             InterruptedMissingConfigRecovers(root);
             ProcessPathsAreScoped(root);
             IsoMountOwnershipIsParsed();
+            PreMountedDiscFolderIsReadOnly(root);
             ConcurrentLaunchesAreRejected(root);
             EarlyCrashesRemainFailures();
             Console.WriteLine("Launcher recovery tests passed.");
@@ -129,6 +130,26 @@ internal static class LauncherRecoverySmoke
         Assert(IsoMountSession.OutputIndicatesVerifiedEject("EJECTED|verified"), "Verified eject marker was not recognized.");
         Assert(!IsoMountSession.OutputIndicatesVerifiedEject(""), "An empty eject result was accepted.");
         Assert(!IsoMountSession.OutputIndicatesVerifiedEject("Dismount-DiskImage returned"), "An unverified eject result was accepted.");
+    }
+
+    private static void PreMountedDiscFolderIsReadOnly(string root)
+    {
+        string disc = Path.Combine(root, "mapped-disc");
+        Directory.CreateDirectory(disc);
+        bool rejected = false;
+        try { using (DiscMediaSession ignored = DiscMediaSession.Open(disc, delegate { })) { } }
+        catch (InvalidDataException) { rejected = true; }
+        Assert(rejected, "An arbitrary folder was accepted as disc media.");
+        string installer = Path.Combine(disc, "setup");
+        Directory.CreateDirectory(installer);
+        File.WriteAllText(Path.Combine(installer, "DATA1.HDR"), "test");
+        File.WriteAllText(Path.Combine(installer, "DATA1.CAB"), "test");
+        using (DiscMediaSession media = DiscMediaSession.Open(disc, delegate { }))
+        {
+            Assert(media.Root == Path.GetFullPath(disc), "The selected disc folder root changed.");
+            Assert(!media.OwnsMount, "The selected disc folder was marked as an owned mount.");
+        }
+        Assert(Directory.Exists(disc), "Disposing a selected disc folder removed it.");
     }
 
     private static void ConcurrentLaunchesAreRejected(string root)
