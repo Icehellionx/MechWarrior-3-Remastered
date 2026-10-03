@@ -70,3 +70,6 @@ try {
     $report.CompletedUtc = [datetime]::UtcNow.ToString('o')
     $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $ReportPath
 }
+# Expected refusal probes return nonzero. Clear their status only after every
+# assertion passed so the calling CI shell observes this gate's success.
+$global:LASTEXITCODE = 0
