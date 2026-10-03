@@ -17,8 +17,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("MechWarrior 3 Remastered contributors")]
 [assembly: AssemblyProduct("MechWarrior 3 Remastered")]
 [assembly: AssemblyCopyright("Copyright © 2026 MechWarrior 3 Remastered contributors")]
-[assembly: AssemblyVersion("1.2.7.0")]
-[assembly: AssemblyFileVersion("1.2.7.0")]
+[assembly: AssemblyVersion("1.2.8.0")]
+[assembly: AssemblyFileVersion("1.2.8.0")]
 
 internal sealed class GameRequest
 {
@@ -41,7 +41,7 @@ internal sealed class LauncherForm : Form
     public LauncherForm()
     {
         Text = "MechWarrior 3 Remastered";
-        ClientSize = new Size(744, 456);
+        ClientSize = new Size(744, 488);
         BackColor = Background;
         ForeColor = Steel;
         Font = new Font("Segoe UI", 10F);
@@ -67,56 +67,60 @@ internal sealed class LauncherForm : Form
         mw3Manual.Click += delegate { OpenManual("MechWarrior 3 Manual.pdf"); };
         pmManual.Click += delegate { OpenManual("MechWarrior 3 Pirate's Moon Manual.pdf"); };
 
-        Button controls = new Button
-        {
-            Text = "CONTROLS",
-            Location = new Point(494, 402),
-            Size = new Size(105, 30),
-            BackColor = Panel,
-            ForeColor = Color.FromArgb(180, 184, 188),
-            FlatStyle = FlatStyle.Flat,
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
-        };
-        controls.FlatAppearance.BorderColor = Color.FromArgb(91, 25, 29);
-        controls.Click += delegate { ShowControlsHelp(); };
-        actions.Add(controls);
-        Controls.Add(controls);
-
-        Button uninstall = new Button
-        {
-            Text = "UNINSTALL",
-            Location = new Point(615, 402),
-            Size = new Size(105, 30),
-            BackColor = Panel,
-            ForeColor = Color.FromArgb(180, 184, 188),
-            FlatStyle = FlatStyle.Flat,
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
-        };
-        uninstall.FlatAppearance.BorderColor = Color.FromArgb(91, 25, 29);
-        uninstall.FlatAppearance.MouseOverBackColor = Color.FromArgb(42, 19, 22);
-        uninstall.Click += delegate { StartUninstall(); };
-        actions.Add(uninstall);
-        Controls.Add(uninstall);
+        AddFooterAction("HELP", 24, delegate { using (LauncherHelpForm help = new LauncherHelpForm()) help.ShowDialog(this); });
+        AddFooterAction("CREDITS", 143, delegate { OpenDocument("THIRD_PARTY_NOTICES.md"); });
+        AddFooterAction("DIAGNOSTICS", 262, async delegate { await OpenDiagnosticsAsync(); });
+        AddFooterAction("SETTINGS", 381, delegate { OpenSettings(); });
+        AddFooterAction("UNINSTALL", 605, delegate { StartUninstall(); });
 
         status.Text = "SYSTEM READY";
         status.Font = new Font("Consolas", 9F, FontStyle.Bold);
         status.ForeColor = Color.FromArgb(145, 150, 154);
-        status.Location = new Point(25, 407);
-        status.Size = new Size(455, 23);
+        status.Location = new Point(25, 451);
+        status.Size = new Size(695, 23);
         status.TextAlign = ContentAlignment.MiddleLeft;
         Controls.Add(new Label { BackColor = Color.FromArgb(66, 67, 70), Location = new Point(24, 389), Size = new Size(696, 1) });
         Controls.Add(status);
     }
 
-    private void ShowControlsHelp()
+    private GraphicsSettingsForm settingsDialog;
+    private DiagnosticsForm diagnosticsDialog;
+
+    private void AddFooterAction(string text, int left, EventHandler click)
     {
-        string message = "To remap controls, launch a game and open Options > Controls. Choose Mouse/Keybd Default or Joystick Default, change bindings, then select Save. Each game keeps its own controls.\n\n" +
-            "Connect a joystick before starting the game. The original game uses legacy DirectInput and may not recognize every modern controller. Calibrate your device in Windows Game Controllers. If throttle or torso twist moves on its own, clear the Joystick Z axis or Joystick Rz axis binding in the game's Controls screen.\n\nOpen Windows Game Controllers now?";
-        if (MessageBox.Show(this, message, "Controls and joystick setup", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+        Button button = new Button { Text = text, Location = new Point(left, 402), Size = new Size(115, 30),
+            BackColor = Panel, ForeColor = Steel, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+        button.FlatAppearance.BorderColor = Color.FromArgb(91, 25, 29);
+        button.Click += click;
+        actions.Add(button);
+        Controls.Add(button);
+    }
+
+    private void OpenDocument(string relative)
+    {
+        try { InstalledDocument.Open(root, relative); }
+        catch (Exception ex) { ShowError(ex.Message); }
+    }
+
+    private void OpenSettings()
+    {
+        if (settingsDialog != null && !settingsDialog.IsDisposed) { settingsDialog.Activate(); return; }
+        settingsDialog = new GraphicsSettingsForm(root);
+        settingsDialog.Show(this);
+    }
+
+    private async Task OpenDiagnosticsAsync()
+    {
+        if (diagnosticsDialog != null && !diagnosticsDialog.IsDisposed) { diagnosticsDialog.Activate(); return; }
+        DiagnosticsForm dialog = new DiagnosticsForm();
+        diagnosticsDialog = dialog;
+        dialog.Show(this);
+        try
         {
-            try { Process.Start("joy.cpl"); }
-            catch (Exception ex) { ShowError("Could not open Windows Game Controllers: " + ex.Message); }
+            string report = await Task.Run(delegate { return InstallationDiagnostics.Build(root); });
+            if (!dialog.IsDisposed) dialog.SetReport(report);
         }
+        catch { if (!dialog.IsDisposed) dialog.SetReport("Diagnostics unavailable. Game launch is independent of this report."); }
     }
 
     private Button MakeTile(string title, string subtitle, Point location, Image image)
@@ -202,9 +206,7 @@ internal sealed class LauncherForm : Form
     {
         try
         {
-            string path = Path.Combine(root, "Manuals", name);
-            if (!File.Exists(path)) throw new FileNotFoundException("The installed manual is missing.", path);
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            InstalledDocument.Open(root, Path.Combine("Manuals", name));
             UpdateStatus("OPENED " + name.ToUpperInvariant());
         }
         catch (Exception ex) { ShowError(ex.Message); }
@@ -240,331 +242,6 @@ internal sealed class LauncherForm : Form
     private void ShowError(string message)
     {
         MessageBox.Show(this, message, Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
-    }
-}
-
-internal static class LauncherRuntime
-{
-    private const uint WmClose = 0x0010;
-    private static readonly string DiagnosticDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MechWarrior 3 Remastered");
-    private static readonly string DiagnosticLog = Path.Combine(DiagnosticDirectory, "launcher.log");
-    private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
-
-    [DllImport("user32.dll")]
-    private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
-
-    [DllImport("user32.dll")]
-    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern int GetWindowText(IntPtr window, StringBuilder text, int maximum);
-
-    [DllImport("user32.dll")]
-    private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
-
-    public static GameRequest Prepare(bool pm)
-    {
-        string root = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-        Dictionary<string, string> cfg = ReadConfig(Path.Combine(root, "install.cfg"));
-        string gameRoot = Path.Combine(root, pm ? "Pirates Moon" : "MechWarrior 3");
-        if (!Directory.Exists(gameRoot)) throw new DirectoryNotFoundException((pm ? "Pirate's Moon" : "MechWarrior 3") + " is not installed.");
-        string mediaType;
-        bool noDisc = pm && cfg.TryGetValue("PiratesMoonMediaType", out mediaType) &&
-            (mediaType.Equals("Rip", StringComparison.OrdinalIgnoreCase) || mediaType.Equals("NoDisc", StringComparison.OrdinalIgnoreCase));
-        string media = null;
-        string key = pm ? "PiratesMoonIso" : "Mw3Iso";
-        if (!noDisc && (!cfg.TryGetValue(key, out media) || !DiscMediaSession.IsAvailable(media)))
-        {
-            media = SelectMedia(pm);
-            if (media == null) return null;
-        }
-        return new GameRequest { PiratesMoon = pm, RequiresDisc = !noDisc, GameRoot = gameRoot, Media = media };
-    }
-
-    public static void Run(GameRequest request, Action<string> report)
-    {
-        using (LaunchLease lease = LaunchLease.Acquire(DiagnosticDirectory))
-        {
-            RunCore(request, report);
-        }
-    }
-
-    private static void RunCore(GameRequest request, Action<string> report)
-    {
-        if (InstalledProcessScope.HasRunningGame(request.GameRoot))
-            throw new InvalidOperationException("Close the running MechWarrior game before starting another title.");
-
-        DiscMediaSession mediaMount = null;
-        try
-        {
-        report("Preparing " + (request.PiratesMoon ? "Pirate's Moon" : "MechWarrior 3") + "...");
-        Log("Launch requested for " + (request.PiratesMoon ? "Pirate's Moon" : "MechWarrior 3") +
-            "; launcher=" + Assembly.GetExecutingAssembly().GetName().Version +
-            "; OS=" + Environment.OSVersion.VersionString + "; 64-bit OS=" + Environment.Is64BitOperatingSystem + ".");
-        InstalledProcessScope.StopAudioPlayers(request.GameRoot, Log);
-        Thread.Sleep(2000);
-        if (request.RequiresDisc)
-        {
-            report("Checking selected disc media...");
-            mediaMount = DiscMediaSession.Open(request.Media, Log);
-        }
-        try
-        {
-            GameControlStorage.EnsureWritable(request.GameRoot);
-            Log("Control-profile storage is writable.");
-        }
-        catch (InvalidOperationException ex)
-        {
-            // Preserve game launch for older Program Files installations. New
-            // setup runs create this storage under the writable default path.
-            Log("Warning: " + ex.Message);
-        }
-        SetRegistry(request.GameRoot, request.PiratesMoon);
-
-        string exe = Path.Combine(request.GameRoot, "Mech3fixup.exe");
-        if (!File.Exists(exe)) throw new FileNotFoundException("The installed game executable is missing.", exe);
-        string ddraw = Path.Combine(request.GameRoot, "ddraw.dll");
-        if (!File.Exists(ddraw)) throw new FileNotFoundException("The DDrawCompat graphics wrapper is missing. Reinstall MechWarrior 3 Remastered.", ddraw);
-        string audioPlayer = Path.Combine(request.GameRoot, "mcicda", "cdaudioplr.exe");
-        Log("Compatibility files: ddraw=" + FileVersion(ddraw) + "; CD audio helper=" +
-            (File.Exists(audioPlayer) ? FileVersion(audioPlayer) : "missing or quarantined") + ".");
-        string outputPath = Path.Combine(request.GameRoot, "mech3.out");
-        string ddrawLogPath = Path.Combine(request.GameRoot, "DDrawCompat-Mech3fixup.log");
-        string processConfigPath = Path.Combine(request.GameRoot, "DDrawCompat-Mech3fixup.ini");
-        string launchId = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture);
-        const int maxAttempts = 5;
-        using (VideoRecoveryConfig recoveryConfig = new VideoRecoveryConfig(processConfigPath, Log))
-        {
-            for (int attempt = 1; attempt <= maxAttempts; attempt++)
-            {
-                string recoveryProfile = recoveryConfig.Apply(attempt);
-                try { if (File.Exists(outputPath)) File.Delete(outputPath); } catch { }
-                report(attempt == 1 ? "Launching game..." :
-                    "Video initialization failed; trying " + recoveryProfile + " (" + attempt + "/" + maxAttempts + ")...");
-                DateTime started = DateTime.UtcNow;
-                ProcessStartInfo start = new ProcessStartInfo(exe) { WorkingDirectory = request.GameRoot, UseShellExecute = false };
-                bool blockedVideoError;
-                int exitCode = -1;
-                using (Process game = Process.Start(start))
-                {
-                    blockedVideoError = WaitForExitAndDismissVideoError(game, started);
-                    try { exitCode = game.ExitCode; } catch { }
-                }
-                TimeSpan runtime = DateTime.UtcNow - started;
-                bool abnormalEarlyExit = LaunchResultClassifier.IsEarlyAbnormalExit(exitCode, runtime);
-                bool videoFailure = blockedVideoError || abnormalEarlyExit ||
-                    (runtime.TotalSeconds < 20 && HasVideoInitializationFailure(outputPath, started));
-                InstalledProcessScope.StopAudioPlayers(request.GameRoot, Log);
-                ArchiveAttemptLogs(request, launchId, attempt, outputPath, ddrawLogPath, started);
-                Log("Attempt " + attempt + " [" + recoveryProfile + "] exited with code " + exitCode + " after " +
-                    runtime.TotalSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) +
-                    " seconds; video dialog=" + blockedVideoError + "; early abnormal exit=" + abnormalEarlyExit +
-                    "; classified video failure=" + videoFailure + ".");
-                if (!videoFailure)
-                {
-                    if (attempt > 1) Log("Video initialization recovered with profile: " + recoveryProfile + ".");
-                    if (!File.Exists(audioPlayer)) Log("Warning: CD audio helper is unavailable; gameplay can continue without music.");
-                    return;
-                }
-                if (attempt == maxAttempts)
-                    throw new InvalidOperationException("MechWarrior 3 could not initialize video after five recovery profiles. " +
-                        "Per-attempt diagnostics were saved under " + Path.Combine(DiagnosticDirectory, "attempts", launchId) +
-                        ". Please attach that folder plus " + DiagnosticLog + " to a bug report.");
-
-                // A failed first-second D3DIM startup can leave the game's selected
-                // adapter/mode values changed. Re-applying the tested renderer state
-                // makes the next attempt a real recovery instead of using settings
-                // poisoned by the previous failure.
-                ResetVideoSettings(request.PiratesMoon);
-                Thread.Sleep(4000);
-            }
-        }
-        }
-        finally
-        {
-            InstalledProcessScope.StopAudioPlayers(request.GameRoot, Log);
-            if (mediaMount != null)
-            {
-                if (mediaMount.OwnsMount) report("Ejecting disc image...");
-                mediaMount.Dispose();
-            }
-        }
-    }
-
-    private static void ArchiveAttemptLogs(GameRequest request, string launchId, int attempt,
-        string outputPath, string ddrawLogPath, DateTime started)
-    {
-        try
-        {
-            string archive = Path.Combine(DiagnosticDirectory, "attempts", launchId);
-            Directory.CreateDirectory(archive);
-            string prefix = request.PiratesMoon ? "pm" : "mw3";
-            ArchiveFreshFile(outputPath, Path.Combine(archive, prefix + "-attempt-" + attempt + ".out"), started);
-            ArchiveFreshFile(ddrawLogPath, Path.Combine(archive, "DDrawCompat-" + prefix + "-attempt-" + attempt + ".log"), started);
-            Log("Attempt " + attempt + " diagnostics archived under " + archive + ".");
-        }
-        catch (Exception ex)
-        {
-            Log("Warning: could not archive attempt " + attempt + " diagnostics: " + ex.Message);
-        }
-    }
-
-    private static void ArchiveFreshFile(string source, string destination, DateTime started)
-    {
-        if (File.Exists(source) && File.GetLastWriteTimeUtc(source) >= started.AddSeconds(-1))
-            File.Copy(source, destination, true);
-    }
-
-    private static bool WaitForExitAndDismissVideoError(Process game, DateTime started)
-    {
-        bool found = false;
-        while (!game.WaitForExit(200))
-        {
-            if (!found && (DateTime.UtcNow - started).TotalSeconds <= 30)
-                found = CloseVideoErrorDialog(game.Id);
-            if (found && !game.WaitForExit(5000))
-            {
-                try { game.Kill(); } catch { }
-                game.WaitForExit();
-            }
-            if ((DateTime.UtcNow - started).TotalSeconds > 30 && !found)
-            {
-                game.WaitForExit();
-                break;
-            }
-        }
-        return found;
-    }
-
-    private static bool CloseVideoErrorDialog(int processId)
-    {
-        bool found = false;
-        EnumWindows(delegate(IntPtr window, IntPtr parameter)
-        {
-            uint owner;
-            GetWindowThreadProcessId(window, out owner);
-            if (owner != (uint)processId) return true;
-            StringBuilder title = new StringBuilder(128);
-            GetWindowText(window, title, title.Capacity);
-            if (title.ToString().Equals("Video Error", StringComparison.OrdinalIgnoreCase))
-            {
-                PostMessage(window, WmClose, IntPtr.Zero, IntPtr.Zero);
-                found = true;
-            }
-            return true;
-        }, IntPtr.Zero);
-        return found;
-    }
-
-    private static bool HasVideoInitializationFailure(string outputPath, DateTime started)
-    {
-        try
-        {
-            return File.Exists(outputPath) && File.GetLastWriteTimeUtc(outputPath) >= started.AddSeconds(-1) &&
-                File.ReadAllText(outputPath).IndexOf("Error opening video... ABORTING RUN", StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-        catch { return false; }
-    }
-
-    private static string FileVersion(string path)
-    {
-        try
-        {
-            FileVersionInfo version = FileVersionInfo.GetVersionInfo(path);
-            return String.IsNullOrEmpty(version.FileVersion) ? "unversioned" : version.FileVersion;
-        }
-        catch { return "unreadable"; }
-    }
-
-    private static void Log(string message)
-    {
-        try
-        {
-            Directory.CreateDirectory(DiagnosticDirectory);
-            File.AppendAllText(DiagnosticLog, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + " " + message + Environment.NewLine);
-        }
-        catch { }
-    }
-
-    private static string SelectMedia(bool pm)
-    {
-        DialogResult choice = MessageBox.Show(
-            "Choose Yes to locate the original ISO, or No to select its already mounted CD drive/folder. Keep a mapped CD drive available while playing under Wine.",
-            "Locate " + (pm ? "Pirate's Moon" : "MechWarrior 3") + " disc",
-            MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information);
-        if (choice == DialogResult.Cancel) return null;
-        if (choice == DialogResult.No)
-        {
-            using (FolderBrowserDialog picker = new FolderBrowserDialog())
-            {
-                picker.Description = "Select the readable root of the mounted game disc";
-                return picker.ShowDialog() == DialogResult.OK ? picker.SelectedPath : null;
-            }
-        }
-        using (OpenFileDialog picker = new OpenFileDialog())
-        {
-            picker.Title = "Locate your " + (pm ? "Pirate's Moon" : "MechWarrior 3") + " ISO";
-            picker.Filter = "Disc images (*.iso)|*.iso|All files (*.*)|*.*";
-            return picker.ShowDialog() == DialogResult.OK ? picker.FileName : null;
-        }
-    }
-
-    private static Dictionary<string, string> ReadConfig(string path)
-    {
-        if (!File.Exists(path)) throw new FileNotFoundException("The launcher configuration is missing. Reinstall MechWarrior 3 Remastered.", path);
-        Dictionary<string, string> values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (string line in File.ReadAllLines(path))
-        {
-            int split = line.IndexOf('=');
-            if (split > 0) values[line.Substring(0, split)] = line.Substring(split + 1);
-        }
-        return values;
-    }
-
-    private static void SetRegistry(string gameRoot, bool pm)
-    {
-        GameInstallRegistry.WriteVirtualStoreRegistration(gameRoot, pm);
-        string product = pm ? "MechWarrior 3 EP1" : "MechWarrior 3";
-        using (RegistryKey hkcu = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Default))
-        using (RegistryKey settings = hkcu.CreateSubKey("Software\\MicroProse\\" + product + "\\1.0"))
-        {
-            // These three values identify the tested HAL, primary adapter and
-            // 1024x768 mode. They are boot prerequisites, not player preferences.
-            settings.SetValue("HWCardFlag", 1, RegistryValueKind.DWord);
-            settings.SetValue("HWCardDev", 0, RegistryValueKind.DWord);
-            settings.SetValue("InGameVMode", 5, RegistryValueKind.DWord);
-            SetIfMissing(settings, "SoundVolume", BitConverter.GetBytes(1.0f), RegistryValueKind.Binary);
-            SetIfMissing(settings, "TextureMemory_HW", 3, RegistryValueKind.DWord);
-            SetIfMissing(settings, "GfxFlags_HW", 0x1f, RegistryValueKind.DWord);
-            SetIfMissing(settings, "Shadow", 1, RegistryValueKind.DWord);
-            SetIfMissing(settings, "ShadowParts_HW", 1, RegistryValueKind.DWord);
-            SetIfMissing(settings, "EffectsLevel_HW", 0, RegistryValueKind.DWord);
-            SetIfMissing(settings, "ObjectLOD_HW", 0, RegistryValueKind.DWord);
-            if (settings.GetValue("RemasterDefaultsVersion") == null)
-            {
-                settings.SetValue("CDVolume", BitConverter.GetBytes(0.60f), RegistryValueKind.Binary);
-                settings.SetValue("RemasterDefaultsVersion", 1, RegistryValueKind.DWord);
-            }
-        }
-    }
-
-    private static void ResetVideoSettings(bool pm)
-    {
-        string product = pm ? "MechWarrior 3 EP1" : "MechWarrior 3";
-        using (RegistryKey hkcu = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Default))
-        using (RegistryKey settings = hkcu.CreateSubKey("Software\\MicroProse\\" + product + "\\1.0"))
-        {
-            settings.SetValue("HWCardFlag", 1, RegistryValueKind.DWord);
-            settings.SetValue("HWCardDev", 0, RegistryValueKind.DWord);
-            settings.SetValue("InGameVMode", 5, RegistryValueKind.DWord);
-        }
-        Log("Restored tested Direct3D HAL, primary-adapter and 1024x768 startup values before retry.");
-    }
-
-    private static void SetIfMissing(RegistryKey key, string name, object value, RegistryValueKind kind)
-    {
-        if (key.GetValue(name) == null) key.SetValue(name, value, kind);
     }
 }
 

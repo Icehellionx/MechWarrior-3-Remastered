@@ -5,16 +5,8 @@ internal static class LauncherShortcutPolicy
 {
     internal static void CreatePrimaryShortcut(string path, string installRoot)
     {
-        Type type = Type.GetTypeFromProgID("WScript.Shell");
-        dynamic shell = Activator.CreateInstance(type);
-        dynamic link = shell.CreateShortcut(path);
         string launcher = Path.Combine(installRoot, "MW3Launcher.exe");
-        link.TargetPath = launcher;
-        link.Arguments = "";
-        link.WorkingDirectory = installRoot;
-        link.IconLocation = launcher + ",0";
-        link.Description = "Open the MechWarrior 3 Remastered launcher";
-        link.Save();
+        InstalledShellLink.Create(path, launcher, installRoot, "Open the MechWarrior 3 Remastered launcher", launcher);
     }
 
     internal static void RemoveOwnedLegacyDesktopShortcuts()
@@ -37,10 +29,8 @@ internal static class LauncherShortcutPolicy
         if (!File.Exists(path)) return false;
         try
         {
-            Type type = Type.GetTypeFromProgID("WScript.Shell");
-            dynamic shell = Activator.CreateInstance(type);
-            dynamic link = shell.CreateShortcut(path);
-            return IsOwnedLegacyTarget((string)link.TargetPath, (string)link.Arguments);
+            string[] link = InstalledShellLink.Read(path);
+            return IsOwnedLegacyTarget(link[0], link[1]);
         }
         catch { return false; }
     }

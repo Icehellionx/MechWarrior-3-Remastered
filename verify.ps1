@@ -47,7 +47,7 @@ try {
     & $saveStorageTest
     if ($LASTEXITCODE) { throw "Saved-pilot preservation tests failed with exit code $LASTEXITCODE." }
     $shortcutPolicyTest = Join-Path $smoke 'LauncherShortcutPolicySmoke.exe'
-    & $csc /nologo /target:exe /platform:anycpu /optimize+ "/out:$shortcutPolicyTest" /reference:Microsoft.CSharp.dll (Join-Path $releaseRoot 'tests\LauncherShortcutPolicySmoke.cs') (Join-Path $releaseRoot 'src\LauncherShortcutPolicy.cs')
+    & $csc /nologo /target:exe /platform:anycpu /optimize+ "/out:$shortcutPolicyTest" /reference:Microsoft.CSharp.dll (Join-Path $releaseRoot 'tests\LauncherShortcutPolicySmoke.cs') (Join-Path $releaseRoot 'src\LauncherShortcutPolicy.cs') (Join-Path $releaseRoot 'src\InstalledShellLink.cs')
     if ($LASTEXITCODE) { throw "Launcher shortcut policy test compilation failed with exit code $LASTEXITCODE." }
     & $shortcutPolicyTest
     if ($LASTEXITCODE) { throw "Launcher shortcut policy tests failed with exit code $LASTEXITCODE." }
@@ -80,11 +80,13 @@ try {
         $uninstallButtons = @($launcherForm.Controls | Where-Object { $_ -is [System.Windows.Forms.Button] -and $_.Text -eq 'UNINSTALL' })
         if ($uninstallButtons.Count -ne 1) { throw 'The launcher must expose exactly one UNINSTALL button.' }
         if ($uninstallButtons[0].Right -ne 720 -or $uninstallButtons[0].Bottom -ne 432) { throw 'The launcher UNINSTALL button is not in the expected bottom-right position.' }
-        $controlsButtons = @($launcherForm.Controls | Where-Object { $_ -is [System.Windows.Forms.Button] -and $_.Text -eq 'CONTROLS' })
-        if ($controlsButtons.Count -ne 1 -or $controlsButtons[0].Right -ge $uninstallButtons[0].Left) {
-            throw 'The launcher controls action is missing or overlaps uninstall.'
+        foreach ($name in @('HELP', 'CREDITS', 'DIAGNOSTICS', 'SETTINGS')) {
+            $buttons = @($launcherForm.Controls | Where-Object { $_ -is [System.Windows.Forms.Button] -and $_.Text -eq $name })
+            if ($buttons.Count -ne 1 -or $buttons[0].Right -ge $uninstallButtons[0].Left) {
+                throw "The launcher $name action is missing or overlaps uninstall."
+            }
         }
-        Write-Host 'Launcher controls and uninstall actions: passed.'
+        Write-Host 'Packaged launcher parity and uninstall actions: passed.'
     }
     finally { $launcherForm.Dispose() }
     # Isolate the helper from the payload's winmm proxy. The installed helper
@@ -209,7 +211,17 @@ try {
         $pmGame = [string](Join-Path $smoke 'pirates-moon-game')
         Invoke-InstallerMethod $type $flags 'ExtractZipSafely' ([object[]]@($ripArchive, $expandedRip))
         $ripRoot = [string](Invoke-InstallerMethod $type $flags 'FindPiratesMoonRipRoot' ([object[]]@($expandedRip)))
+        # Exercise read-only media without modifying the user's original RIP.
+        $readOnlyRetail = Join-Path $ripRoot 'mech3.exe'
+        $readOnlyNoDisc = Join-Path $ripRoot 'CRACK/MECH3.EXE'
+        foreach ($mediaExe in @($readOnlyRetail, $readOnlyNoDisc)) {
+            [IO.File]::SetAttributes($mediaExe, [IO.File]::GetAttributes($mediaExe) -bor [IO.FileAttributes]::ReadOnly)
+        }
         Invoke-InstallerMethod $type $flags 'ExtractPiratesMoonRip' ([object[]]@($ripRoot, $pmGame))
+        if ((Get-FileHash -LiteralPath (Join-Path $pmGame 'Mech3.exe')).Hash -ne (Get-FileHash -LiteralPath $readOnlyNoDisc).Hash) { throw 'Read-only RIP replacement did not preserve the validated executable.' }
+        foreach ($mediaExe in @($readOnlyRetail, $readOnlyNoDisc)) {
+            if (-not ([IO.File]::GetAttributes($mediaExe) -band [IO.FileAttributes]::ReadOnly)) { throw 'RIP extraction mutated source-media attributes.' }
+        }
         Invoke-InstallerMethod $type $flags 'InstallCompatibility' ([object[]]@($payload, $pmGame, [bool]$true))
         Assert-InstalledGameSmoke $pmGame $true $qualifiedDdrawHash
         if ($audioTestsEnabled) {

@@ -49,10 +49,10 @@ New-Item -ItemType Directory -Path (Split-Path -Parent $cdAudioPlayer) -Force | 
 if ($LASTEXITCODE) { throw "CD audio player compilation failed with exit code $LASTEXITCODE." }
 Copy-ReleaseFile $nlayerAssembly (Join-Path $payloadRoot 'compat\NLayer.dll')
 $launcher = Join-Path $payloadRoot 'MW3Launcher.exe'
-& $csc /nologo /target:winexe /platform:anycpu /optimize+ "/win32manifest:$releaseRoot\src\launcher.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/resource:$releaseRoot\assets\MW3-Game.png,MW3.Game.png" "/resource:$releaseRoot\assets\Pirates-Moon-Game.png,PiratesMoon.Game.png" "/resource:$releaseRoot\assets\MW3-Manual-Cover.png,MW3.ManualCover.png" "/resource:$releaseRoot\assets\Pirates-Moon-Manual-Cover.png,PiratesMoon.ManualCover.png" "/out:$launcher" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "$releaseRoot\src\Launcher.cs" "$releaseRoot\src\LauncherRecovery.cs" "$releaseRoot\src\InstalledProcessScope.cs" "$releaseRoot\src\GameInstallRegistry.cs" "$releaseRoot\src\GameControlStorage.cs"
+& $csc /nologo /target:winexe /platform:anycpu /optimize+ "/win32manifest:$releaseRoot\src\launcher.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/resource:$releaseRoot\assets\MW3-Game.png,MW3.Game.png" "/resource:$releaseRoot\assets\Pirates-Moon-Game.png,PiratesMoon.Game.png" "/resource:$releaseRoot\assets\MW3-Manual-Cover.png,MW3.ManualCover.png" "/resource:$releaseRoot\assets\Pirates-Moon-Manual-Cover.png,PiratesMoon.ManualCover.png" "/out:$launcher" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "$releaseRoot\src\Launcher.cs" "$releaseRoot\src\LauncherRuntime.cs" "$releaseRoot\src\LauncherHelpForm.cs" "$releaseRoot\src\InstalledDocument.cs" "$releaseRoot\src\InstallationDiagnostics.cs" "$releaseRoot\src\DiagnosticsForm.cs" "$releaseRoot\src\GraphicsProfileService.cs" "$releaseRoot\src\GraphicsSettingsForm.cs" "$releaseRoot\src\LauncherRecovery.cs" "$releaseRoot\src\InstalledProcessScope.cs" "$releaseRoot\src\GameInstallRegistry.cs" "$releaseRoot\src\GameControlStorage.cs"
 if ($LASTEXITCODE) { throw "Launcher compilation failed with exit code $LASTEXITCODE." }
 $uninstaller = Join-Path $payloadRoot 'Uninstall.exe'
-& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$uninstaller" /reference:System.Windows.Forms.dll /reference:Microsoft.CSharp.dll "$releaseRoot\src\Uninstaller.cs" "$releaseRoot\src\InstalledProcessScope.cs" "$releaseRoot\src\GameInstallRegistry.cs" "$releaseRoot\src\GameSaveStorage.cs" "$releaseRoot\src\LauncherShortcutPolicy.cs"
+& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$uninstaller" /reference:System.Windows.Forms.dll /reference:Microsoft.CSharp.dll "$releaseRoot\src\Uninstaller.cs" "$releaseRoot\src\InstalledProcessScope.cs" "$releaseRoot\src\GameInstallRegistry.cs" "$releaseRoot\src\GameSaveStorage.cs" "$releaseRoot\src\LauncherShortcutPolicy.cs" "$releaseRoot\src\InstalledShellLink.cs"
 if ($LASTEXITCODE) { throw "Uninstaller compilation failed with exit code $LASTEXITCODE." }
 
 # Extraction tool: used temporarily and not left in the installed game.
@@ -63,8 +63,17 @@ Copy-ReleaseFile "$releaseRoot\tools\Use-SoundLevelCandidate.ps1" "$payloadRoot\
 Copy-Item -LiteralPath "$projectRoot\staging\patch12-payload" -Destination "$payloadRoot\patch12" -Recurse
 
 # Current compatibility/remaster binaries.
-Copy-ReleaseFile "$projectRoot\tools\ZipperFixup\target\i686-pc-windows-msvc\release\zipfixup.dll" "$payloadRoot\compat\zipfixup.dll"
-Copy-ReleaseFile "$projectRoot\tools\ZipperFixup\target\i686-pc-windows-msvc\release\zippatch.exe" "$payloadRoot\compat\zfapply.exe"
+# Source-built static CRT variant: a clean guest must not need VC++ redistributables.
+# Rebuild with tools/Build-ZipperFixupStatic.ps1; keep native owner outputs untouched.
+$zipperRoot = "$projectRoot\tools\.build\ZipperFixup-static-crt\i686-pc-windows-msvc\release"
+foreach ($input in @(
+    @{ Name = 'zipfixup.dll'; Hash = 'AEBE04E81D44230575B5879ABF3219CA82E2E5DE7ABE9944DD16670AB66E09AF'; Destination = 'zipfixup.dll' },
+    @{ Name = 'zippatch.exe'; Hash = '4FDB0BB70CF293033C8EA46644A017393061274189269A23DA7D63FE037E3042'; Destination = 'zfapply.exe' }
+)) {
+    $path = Join-Path $zipperRoot $input.Name
+    if ((Get-FileHash -LiteralPath $path).Hash -ne $input.Hash) { throw 'Unexpected static-runtime ZipperFixup input; rebuild and qualify it before packaging.' }
+    Copy-ReleaseFile $path (Join-Path "$payloadRoot\compat" $input.Destination)
+}
 # Ship the clean v0.7.1-derived wrapper with isolated presentation fixes and
 # the separately switchable INTRO.AVI dark-chroma cleanup experiment.
 # The development tree contains broader experimental hooks and is not a release input.
@@ -121,7 +130,7 @@ if ($forbidden) { throw "Forbidden release input detected: $($forbidden.FullName
 $payloadZip = Join-Path $objRoot 'payload.zip'
 Compress-Archive -Path (Join-Path $payloadRoot '*') -DestinationPath $payloadZip -CompressionLevel Optimal
 $setup = Join-Path $distRoot $SetupFileName
-& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$setup" "/resource:$payloadZip,Payload.zip" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll "$releaseRoot\src\Installer.cs" "$releaseRoot\src\LauncherRecovery.cs" "$releaseRoot\src\GameInstallRegistry.cs" "$releaseRoot\src\PiratesMoonMedia.cs" "$releaseRoot\src\GameControlStorage.cs" "$releaseRoot\src\GameSaveStorage.cs" "$releaseRoot\src\LauncherShortcutPolicy.cs" "$releaseRoot\src\SoundArchiveLeveler.cs"
+& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32manifest:$releaseRoot\src\app.manifest" "/win32icon:$releaseRoot\assets\MW3-Remastered.ico" "/out:$setup" "/resource:$payloadZip,Payload.zip" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll "$releaseRoot\src\Installer.cs" "$releaseRoot\src\LauncherRecovery.cs" "$releaseRoot\src\GameInstallRegistry.cs" "$releaseRoot\src\PiratesMoonMedia.cs" "$releaseRoot\src\GameControlStorage.cs" "$releaseRoot\src\GameSaveStorage.cs" "$releaseRoot\src\LauncherShortcutPolicy.cs" "$releaseRoot\src\InstalledShellLink.cs" "$releaseRoot\src\SoundArchiveLeveler.cs"
 if ($LASTEXITCODE) { throw "Installer compilation failed with exit code $LASTEXITCODE." }
 
 $result = Get-Item -LiteralPath $setup

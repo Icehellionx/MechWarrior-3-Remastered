@@ -124,14 +124,14 @@ function Assert-InstalledGameSmoke {
         'FullscreenMode = borderless', 'AltTabFix = keepvidmem(1)', 'DisplayAspectRatio = 4:3',
         'ResolutionScale = display(1)', 'ResolutionScaleFilter = bilinear',
         'SupportedResolutions = 640x480, 1024x768', 'Antialiasing = msaa4x(0)',
-        'TextureFilter = af16x', 'LogLevel = info'
+        'TextureFilter = af16x', 'LogLevel = info', 'PresentationEdgeRepair = 4'
     )
     foreach ($setting in $commonSettings) {
         if (-not $config.Contains($setting)) { throw "$gameName renderer profile is missing: $setting" }
     }
 
     $baseOnlySettings = @('CpuAffinityRotation = off', 'RemasterIntroWidescreen = on',
-        'RemasterIntroChromaCleanup = on', 'PresentationEdgeRepair = 4')
+        'RemasterIntroChromaCleanup = on')
     if ($PiratesMoon) {
         foreach ($setting in @('VSync = on', 'PresentDelay = on(50)')) {
             if (-not $config.Contains($setting)) { throw "$gameName renderer profile is missing: $setting" }

@@ -18,6 +18,7 @@ internal static class LauncherRecoverySmoke
             InterruptedMissingConfigRecovers(root);
             ProcessPathsAreScoped(root);
             IsoMountOwnershipIsParsed();
+            DiscMountIgnoresWorkingDirectoryExecutable(root);
             PreMountedDiscFolderIsReadOnly(root);
             ConcurrentLaunchesAreRejected(root);
             EarlyCrashesRemainFailures();
@@ -132,6 +133,24 @@ internal static class LauncherRecoverySmoke
         Assert(!IsoMountSession.OutputIndicatesVerifiedEject("Dismount-DiskImage returned"), "An unverified eject result was accepted.");
     }
 
+    private static void DiscMountIgnoresWorkingDirectoryExecutable(string root)
+    {
+        string prior = Environment.CurrentDirectory;
+        string decoy = Path.Combine(root, "powershell.exe");
+        File.WriteAllText(decoy, "This fixture must never be selected for disc mounting.");
+        try
+        {
+            Environment.CurrentDirectory = root;
+            System.Diagnostics.ProcessStartInfo start = IsoMountSession.CreatePowerShellStartInfo("YQBiAA==");
+            Assert(Path.IsPathRooted(start.FileName), "Disc mounting still searches PATH.");
+            Assert(!start.FileName.Equals(decoy, StringComparison.OrdinalIgnoreCase), "Disc mounting selected the working-directory executable.");
+            Assert(start.FileName.StartsWith(Environment.GetFolderPath(Environment.SpecialFolder.System) + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase), "Disc mounting did not select the system executable.");
+            Assert(start.Arguments == "-NoProfile -ExecutionPolicy Bypass -EncodedCommand YQBiAA==", "Encoded command contract changed.");
+        }
+        finally { Environment.CurrentDirectory = prior; }
+    }
+
     private static void PreMountedDiscFolderIsReadOnly(string root)
     {
         string disc = Path.Combine(root, "mapped-disc");
@@ -170,6 +189,14 @@ internal static class LauncherRecoverySmoke
 
     private static void EarlyCrashesRemainFailures()
     {
+        foreach (int code in new[] { unchecked((int)0xC0000135), unchecked((int)0xC000007B), unchecked((int)0xC0000139) })
+        {
+            Assert(LaunchResultClassifier.IsLoaderFailure(code), "A known loader failure was not identified.");
+            Assert(!LaunchResultClassifier.IsEarlyAbnormalExit(code, TimeSpan.FromSeconds(1)),
+                "A loader failure incorrectly requested graphics recovery.");
+        }
+        Assert(!LaunchResultClassifier.IsLoaderFailure(0) && !LaunchResultClassifier.IsLoaderFailure(unchecked((int)0xC0000005)),
+            "Success or an access violation was mislabeled as a runtime dependency failure.");
         Assert(LaunchResultClassifier.IsEarlyAbnormalExit(unchecked((int)0xC0000005), TimeSpan.FromSeconds(3)),
             "An early access violation was incorrectly classified as a successful launch.");
         Assert(!LaunchResultClassifier.IsEarlyAbnormalExit(0, TimeSpan.FromSeconds(3)),

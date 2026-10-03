@@ -355,7 +355,7 @@ internal sealed class IsoMountSession : IDisposable
         // EncodedCommand preserves literal paths and PowerShell syntax across the
         // Windows command-line boundary. The script is generated locally only.
         string encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(command));
-        ProcessStartInfo info = new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -EncodedCommand " + encodedCommand);
+        ProcessStartInfo info = CreatePowerShellStartInfo(encodedCommand);
         info.UseShellExecute = false;
         info.CreateNoWindow = true;
         info.RedirectStandardOutput = true;
@@ -373,6 +373,15 @@ internal sealed class IsoMountSession : IDisposable
             process.WaitForExit();
             return new PowerShellResult(process.ExitCode, output, errors.ToString().Trim());
         }
+    }
+
+    internal static ProcessStartInfo CreatePowerShellStartInfo(string encodedCommand)
+    {
+        string system = Environment.GetFolderPath(Environment.SpecialFolder.System);
+        if (String.IsNullOrEmpty(system) || !Path.IsPathRooted(system))
+            throw new InvalidOperationException("The Windows system directory is unavailable for disc mounting.");
+        return new ProcessStartInfo(Path.Combine(system, "WindowsPowerShell", "v1.0", "powershell.exe"),
+            "-NoProfile -ExecutionPolicy Bypass -EncodedCommand " + encodedCommand);
     }
 
     private string Sanitize(string message)
@@ -408,9 +417,16 @@ internal sealed class IsoMountSession : IDisposable
 
 internal static class LaunchResultClassifier
 {
+    public static bool IsLoaderFailure(int exitCode)
+    {
+        return exitCode == unchecked((int)0xC0000135) || // STATUS_DLL_NOT_FOUND
+            exitCode == unchecked((int)0xC000007B) || // STATUS_INVALID_IMAGE_FORMAT
+            exitCode == unchecked((int)0xC0000139); // STATUS_ENTRYPOINT_NOT_FOUND
+    }
+
     public static bool IsEarlyAbnormalExit(int exitCode, TimeSpan runtime)
     {
-        return exitCode != 0 && runtime.TotalSeconds < 20;
+        return exitCode != 0 && !IsLoaderFailure(exitCode) && runtime.TotalSeconds < 20;
     }
 }
 

@@ -37,3 +37,6 @@ payload/Manuals/*.pdf
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Local VM credentials, media, captures, and reports.
+.local/

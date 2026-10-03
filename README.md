@@ -6,9 +6,9 @@ This project is not affiliated with or endorsed by MicroProse, Hasbro Interactiv
 
 ## ⬇️ Download the installer
 
-### [Download MechWarrior 3 Remastered v1.2.7 Setup.exe](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/MechWarrior-3-Remastered-Setup.exe)
+### [Download MechWarrior 3 Remastered v1.2.8 Setup.exe](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/MechWarrior-3-Remastered-Setup.exe)
 
-Current release: [v1.2.7](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/tag/v1.2.7)
+Current release: [v1.2.8](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/tag/v1.2.8)
 
 Renderer source and standalone package:
 [DDrawCompat-MW3](https://github.com/Icehellionx/DDrawCompat-MW3). This is the
@@ -16,7 +16,7 @@ public MW3-specific fork used by the remaster for graphics compatibility,
 including 32-bit render-color-depth promotion and the Pirate's Moon startup
 surface recovery.
 
-**Most people only need the installer link above.** You supply your own MechWarrior 3 ISO when the installer asks for it. Pirate's Moon is optional and accepts the commonly available RIP ZIP/folder, an original ISO, or an ISO-version ZIP containing a mixed-mode BIN/CUE image.
+**Most people only need the installer link above.** You supply your own MechWarrior 3 ISO when the installer asks for it. The Pirate's Moon expansion is optional; the installer accepts it as an original ISO or as a reduced "RIP" archive (ZIP or extracted folder).
 
 1. Download and run the installer.
 2. Point it to your MechWarrior 3 ISO.
@@ -37,11 +37,22 @@ Get-Content .\SHA256SUMS.txt
 
 The two values should match exactly.
 
+## Screenshots
+
+Captured from the running base game in the Ubuntu 24.04 / Wine 11 VM. This experimental route uses Wine's built-in graphics with the native audio shim; it does not show Windows DDrawCompat graphics enhancements. Captures use the tested r18/game runtime from the preceding candidate; v1.2.8 leaves those game binaries unchanged.
+
+| Main menu | Instant-action briefing |
+| --- | --- |
+| ![MechWarrior 3 main menu](docs/screenshots/mw3-main-menu.png) | ![Big Lake instant-action briefing](docs/screenshots/mw3-mission-briefing.png) |
+
+| Instant action: cockpit | Instant action: moving through Big Lake |
+| --- | --- |
+| ![Cockpit overlooking Big Lake buildings](docs/screenshots/mw3-instant-action-1.png) | ![A second view during Big Lake gameplay](docs/screenshots/mw3-instant-action-2.png) |
 ## What you need
 
 - Windows 10 or Windows 11 on an x64 PC with .NET Framework 4.7.2 or later.
-- A legally obtained US MechWarrior 3 ISO.
-- Optionally, the commonly distributed Pirate's Moon RIP ZIP/extracted folder, a legally obtained US ISO, or an ISO-version ZIP containing its BIN/CUE image.
+- A US copy of MechWarrior 3 that you own, as an ISO.
+- Optionally, a copy of Pirate's Moon that you own, as an original ISO or a reduced RIP archive (ZIP or extracted folder).
 - About 1 GB of free space for MW3, plus additional space if installing Pirate's Moon.
 
 Neither ISO is included, uploaded, or copied into the installed directory.
@@ -50,7 +61,7 @@ Neither ISO is included, uploaded, or copied into the installed directory.
 
 1. Run the setup EXE.
 2. Browse to your MechWarrior 3 ISO.
-3. Optionally select Pirate's Moon and browse to its RIP ZIP, extracted RIP folder, ISO, or ISO-version BIN/CUE ZIP.
+3. Optionally select Pirate's Moon and browse to your own copy as an original ISO, reduced RIP ZIP/extracted folder, or BIN/CUE ZIP.
 4. Keep the default per-user `LocalAppData\Programs` destination or choose another empty directory.
 5. Use the installed desktop or Start-menu launcher to open either game or either manual.
 
@@ -59,7 +70,7 @@ Keep the MechWarrior 3 ISO at the path selected during setup. Pirate's Moon medi
 ## What setup changes
 
 - Extracts the retail game from the selected ISO.
-- Converts either verified Pirate's Moon retail executable variant to the project's single verified no-disc runtime, leaving selected media unchanged. The true disc executable receives its 12-byte runtime-path normalization plus the two disc-check branch changes; the partly normalized RIP retail executable needs only the two branch changes. ISO-version ZIPs are safely expanded and their Mode-1 BIN/CUE ISO 9660 data volume is converted to a temporary mountable ISO; the audio track is not copied because the remaster supplies its own redistribution-safe music.
+- Converts either verified Pirate's Moon retail executable variant to the project's single verified no-disc runtime, leaving selected media unchanged. The true disc executable receives its 12-byte runtime-path normalization plus the two disc-check branch changes; the partly normalized RIP retail executable needs only the two branch changes. ISO-version ZIPs are safely expanded and their Mode-1 BIN/CUE ISO 9660 data volume is converted to a temporary mountable ISO; the audio track is not copied because the remaster supplies bundled music under the permissions represented in [REDISTRIBUTION.md](REDISTRIBUTION.md).
 - Restores the small `DATA.TAG` application marker that the original Pirate's Moon InstallShield setup creates but cabinet-only extraction omits; without it, ISO-derived installations can terminate with an access violation during startup.
 - Applies the official MechWarrior 3 v1.2 files.
 - Adds DDrawCompat, ZipperFixup, the MW3 remaster shader, and CD-audio compatibility.
@@ -85,13 +96,13 @@ See [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [THIRD_PARTY_NOTIC
 ## Known limitations
 
 - The release is not Authenticode-signed, so Windows cannot display a verified publisher.
-- The US MW3 disc, common Pirate's Moon RIP folder/ZIP, and `MechWarrior-3-Pirates-Moon_Win_EN_ISO-Version.zip` BIN/CUE paths have passed extraction and patching tests. The ISO-version archive test covers safe expansion, Mode-1 conversion, mount/eject, InstallShield extraction, the true disc-executable transformation, compatibility installation, and the shared installed-game/audio contract.
+- The US MW3 disc, user-supplied Pirate's Moon RIP folder/ZIP, and BIN/CUE archive paths have passed extraction and patching tests. The ISO-version archive test covers safe expansion, Mode-1 conversion, mount/eject, InstallShield extraction, the true disc-executable transformation, compatibility installation, and the shared installed-game/audio contract.
 - This project does not promise compatibility with other regions or modified disc images.
 - The sound option has passed archive integrity and install/restore smoke tests but has not been checked by listening in the reported mission. The game uses legacy DirectInput; the installer verifies writable mappings and game input files, but modern joystick axis capture and force feedback are device-dependent.
 
 ### Wine/Linux disc selection
 
-Wine does not provide the Windows `Mount-DiskImage`/`Get-DiskImage`/`Get-Volume` pipeline used by the ISO picker. On Linux, mount your own MW3 ISO with your Linux desktop or distribution tools, expose that mounted directory as a CD-ROM drive in the same Wine prefix, then choose **Folder...** in setup and select the readable disc root. Keep the mount and Wine drive mapping available when launching the base game. The launcher accepts the saved folder path and leaves the external mount alone. Selecting an extracted disc folder may allow installation, but the base game's runtime disc check can still require a Wine CD-ROM mapping. This path has a deterministic folder-validation test and Windows build/smoke coverage; a complete install and launch under Wine still requires field testing.
+Wine does not provide the Windows `Mount-DiskImage`/`Get-DiskImage`/`Get-Volume` pipeline used by the ISO picker. On Linux, mount your own MW3 ISO with your Linux desktop or distribution tools, expose that mounted directory as a CD-ROM drive in the same Wine prefix, then choose **Folder...** in setup and select the readable disc root. Keep the mount and Wine drive mapping available when launching the base game. The launcher accepts the saved folder path and leaves the external mount alone. Selecting an extracted disc folder may allow installation, but the base game's runtime disc check can still require a Wine CD-ROM mapping. Ubuntu 24.04 / Wine 11 testing passes both-game installation, two instant missions per game, pilot reload and audio probes with Wine built-in graphics and the native audio shim. Native DDrawCompat crashes under Wine; its Windows graphics enhancements are unavailable on this route. See [the experimental Wine recipe and limits](tools/wine/README.md).
 
 ## Reporting a bug
 
@@ -112,7 +123,9 @@ The installer and launcher source is under `src`. The maintainer build script as
 Both ISO parameters use the same mount, extraction, compatibility, installed-tree, input, renderer, audio, and cleanup contract; the base disc additionally requires populated video copying. Game-specific steps are limited to the official v1.2 patch for the base game and the verified retail-to-no-disc transformation for Pirate's Moon. `-PiratesMoonArchivePath` adds safe ZIP and BIN/CUE conversion ahead of that same Pirate's Moon contract.
 `-VerifyAudioOutput` is an interactive-machine gate that decodes and briefly plays an installed MP3 through the same 32-bit NLayer/`waveOut` path used by the CD-audio helper. It verifies direct output plus the installed helper's play/pause/resume/stop protocol. Keep it separate from headless protocol tests because CI or sandbox accounts may not expose a usable output device.
 
-The build script intentionally does not download dependencies. A public clone therefore needs the pinned third-party inputs and redistribution-safe assets described in [BUILDING.md](BUILDING.md). Release binaries are published separately on GitHub Releases rather than committed to Git history.
+For isolated Windows diagnostics, see the [headless VirtualBox route](tools/vm/README.md). It transfers scripts, installer candidates, and result files through Guest Additions without using the host desktop.
+
+The build script intentionally does not download dependencies. A public clone therefore needs the pinned third-party inputs and assets described in [BUILDING.md](BUILDING.md), with their redistribution basis recorded in [REDISTRIBUTION.md](REDISTRIBUTION.md). Release binaries are published separately on GitHub Releases rather than committed to Git history.
 
 ## License
 

@@ -1,6 +1,6 @@
 # Third-party notices and credits
 
-This is an unofficial community preservation installer. It is not affiliated with or endorsed by MicroProse, Hasbro Interactive, Zipper Interactive, Microsoft, or any current rights holder. MechWarrior, BattleTech, and related marks belong to their respective owners. The installer does not contain either game ISO; users must supply their own legally obtained media.
+This is an unofficial community preservation installer. It is not affiliated with or endorsed by MicroProse, Hasbro Interactive, Zipper Interactive, Microsoft, or any current rights holder. MechWarrior, BattleTech, and related marks belong to their respective owners. The installer does not contain either game ISO; users must supply media from copies of the games that they own.
 
 The installer and launcher glue are original work prepared for this project. Compatibility components and extraction tools are credited below. Their retained license/readme files are installed in `Third-Party`.
 

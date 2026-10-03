@@ -3,7 +3,8 @@ using System.IO;
 
 internal static class LauncherShortcutPolicySmoke
 {
-    private static int Main()
+    [STAThread]
+    private static int Main(string[] args)
     {
         string root = Path.Combine(Path.GetTempPath(), "MW3ShortcutSmoke-" + Guid.NewGuid().ToString("N"));
         try
@@ -20,6 +21,32 @@ internal static class LauncherShortcutPolicySmoke
             File.WriteAllText(launcher, "fixture");
             string shortcut = Path.Combine(root, "MechWarrior 3 Remastered.lnk");
             LauncherShortcutPolicy.CreatePrimaryShortcut(shortcut, root);
+            string[] typed = InstalledShellLink.Read(shortcut);
+            Assert(typed[0].Equals(launcher, StringComparison.OrdinalIgnoreCase), "Typed shortcut target did not round-trip.");
+            Assert(typed[1] == String.Empty, "Typed shortcut arguments did not round-trip.");
+            Assert(typed[2].TrimEnd('\\').Equals(root, StringComparison.OrdinalIgnoreCase), "Typed working directory did not round-trip.");
+            Assert(typed[3].Equals(launcher + ",0", StringComparison.OrdinalIgnoreCase), "Typed branded icon did not round-trip.");
+            string manual = Path.Combine(root, "manual with spaces.pdf");
+            File.WriteAllText(manual, "fixture");
+            string manualLink = Path.Combine(root, "Manual.lnk");
+            InstalledShellLink.Create(manualLink, manual, root, "Original manual", null);
+            Assert(InstalledShellLink.Read(manualLink)[0].Equals(manual, StringComparison.OrdinalIgnoreCase), "Manual shortcut did not round-trip.");
+            bool failed = false;
+            try { InstalledShellLink.Create(Path.Combine(root, "absent", "failure.lnk"), manual, root, "Failure fixture", null); }
+            catch { failed = true; }
+            Assert(failed, "Shortcut persistence failure was hidden.");
+            // Setup finalization executes on Task.Run's MTA worker, not the UI STA.
+            System.Threading.Tasks.Task.Run(delegate {
+                string workerLink = Path.Combine(root, "Worker.lnk");
+                LauncherShortcutPolicy.CreatePrimaryShortcut(workerLink, root);
+                Assert(InstalledShellLink.Read(workerLink)[0].Equals(launcher, StringComparison.OrdinalIgnoreCase), "Installer-worker shortcut did not round-trip.");
+            }).GetAwaiter().GetResult();
+            if (args.Length == 1 && args[0] == "--typed-only")
+            {
+                Console.WriteLine("Typed Shell Link persistence, STA/MTA round-trip and failure contracts passed; independent WScript reader not run.");
+                return 0;
+            }
+            // Independently inspect the produced links through Windows scripting automation.
             Type type = Type.GetTypeFromProgID("WScript.Shell");
             dynamic shell = Activator.CreateInstance(type);
             dynamic link = shell.CreateShortcut(shortcut);

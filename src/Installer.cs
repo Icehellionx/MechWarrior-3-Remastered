@@ -17,8 +17,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("MechWarrior 3 Remastered contributors")]
 [assembly: AssemblyProduct("MechWarrior 3 Remastered")]
 [assembly: AssemblyCopyright("Copyright © 2026 MechWarrior 3 Remastered contributors")]
-[assembly: AssemblyVersion("1.2.7.0")]
-[assembly: AssemblyFileVersion("1.2.7.0")]
+[assembly: AssemblyVersion("1.2.8.0")]
+[assembly: AssemblyFileVersion("1.2.8.0")]
 
 internal sealed class InstallerForm : Form
 {
@@ -41,7 +41,7 @@ internal sealed class InstallerForm : Form
         Font = new Font("Segoe UI", 9F);
 
         Label heading = new Label { Text = "Install MechWarrior 3 Remastered", Font = new Font("Segoe UI", 16F, FontStyle.Bold), AutoSize = true, Location = new Point(22, 18) };
-        Label intro = new Label { Text = "Game media is not included. Select your legally owned MW3 ISO or an already mounted disc folder; Pirate's Moon accepts an ISO, RIP, or ISO-version ZIP containing BIN/CUE media.", AutoSize = false, Size = new Size(700, 42), Location = new Point(25, 55) };
+        Label intro = new Label { Text = "Supply a US copy of MechWarrior 3 that you own as an ISO or mounted disc folder. Pirate's Moon is optional: supply a copy you own as an original ISO or reduced RIP archive (ZIP or extracted folder).", AutoSize = false, Size = new Size(700, 42), Location = new Point(25, 55) };
         Controls.Add(heading); Controls.Add(intro);
         AddPicker("MechWarrior 3 ISO or mounted disc folder (required)", mw3Iso, 105, PickMw3, "browseMw3");
         mw3Iso.Size = new Size(525, 24);
@@ -50,7 +50,7 @@ internal sealed class InstallerForm : Form
         Button browseMw3Folder = new Button { Text = "Folder...", Location = new Point(650, 125), Size = new Size(80, 26) };
         browseMw3Folder.Click += PickMw3Folder; Controls.Add(browseMw3Folder);
 
-        installPm.Text = "Also install Pirate's Moon from an ISO, RIP ZIP/folder, or ISO-version ZIP (optional)";
+        installPm.Text = "Also install a copy of Pirate's Moon that you own (optional: ISO or RIP ZIP/folder)";
         installPm.AutoSize = true; installPm.Location = new Point(25, 166);
         installPm.CheckedChanged += delegate { pmMedia.Enabled = installPm.Checked; Controls["browsePm"].Enabled = installPm.Checked; Controls["browsePmFolder"].Enabled = installPm.Checked; };
         Controls.Add(installPm);
@@ -87,12 +87,12 @@ internal sealed class InstallerForm : Form
         browse.Click += click; Controls.Add(browse);
     }
 
-    private void PickMw3(object sender, EventArgs e) { PickIso(mw3Iso, "Select your MechWarrior 3 ISO"); }
+    private void PickMw3(object sender, EventArgs e) { PickIso(mw3Iso, "Select an ISO of your own MechWarrior 3 copy"); }
     private void PickMw3Folder(object sender, EventArgs e)
     {
         using (FolderBrowserDialog dialog = new FolderBrowserDialog())
         {
-            dialog.Description = "Select the readable root of your mounted MechWarrior 3 disc";
+            dialog.Description = "Select the readable root of a mounted MechWarrior 3 disc that you own";
             if (Directory.Exists(mw3Iso.Text)) dialog.SelectedPath = mw3Iso.Text;
             if (dialog.ShowDialog(this) == DialogResult.OK) mw3Iso.Text = dialog.SelectedPath;
         }
@@ -101,7 +101,7 @@ internal sealed class InstallerForm : Form
     {
         using (OpenFileDialog dialog = new OpenFileDialog())
         {
-            dialog.Title = "Select your Pirate's Moon RIP ZIP, ISO-version ZIP, or ISO";
+            dialog.Title = "Select your own Pirate's Moon copy (original ISO, RIP ZIP, or BIN/CUE ZIP)";
             dialog.Filter = "Pirate's Moon media (*.zip;*.iso)|*.zip;*.iso|ZIP archives (*.zip)|*.zip|Disc images (*.iso)|*.iso|All files (*.*)|*.*";
             if (dialog.ShowDialog(this) == DialogResult.OK) pmMedia.Text = dialog.FileName;
         }
@@ -110,7 +110,7 @@ internal sealed class InstallerForm : Form
     {
         using (FolderBrowserDialog dialog = new FolderBrowserDialog())
         {
-            dialog.Description = "Select an extracted Pirate's Moon RIP folder or a folder containing its BIN/CUE disc image";
+            dialog.Description = "Select a folder from your own Pirate's Moon copy (extracted RIP or BIN/CUE image)";
             if (Directory.Exists(pmMedia.Text)) dialog.SelectedPath = pmMedia.Text;
             if (dialog.ShowDialog(this) == DialogResult.OK) pmMedia.Text = dialog.SelectedPath;
         }
@@ -331,7 +331,11 @@ internal sealed class InstallerForm : Form
             if (Path.GetFileName(directory).Equals("CRACK", StringComparison.OrdinalIgnoreCase)) continue;
             CopyDirectory(directory, Path.Combine(gameRoot, Path.GetFileName(directory)));
         }
-        File.Copy(noDiscExe, Path.Combine(gameRoot, "Mech3.exe"), true);
+        string stagedExe = Path.Combine(gameRoot, "Mech3.exe");
+        // File.Copy preserves a read-only media attribute. Only the owned staged
+        // copy may be made writable before replacing it; never alter the source.
+        File.SetAttributes(stagedExe, File.GetAttributes(stagedExe) & ~FileAttributes.ReadOnly);
+        File.Copy(noDiscExe, stagedExe, true);
     }
 
     private void InstallPiratesMoonDisc(string imagePath, string gameRoot, string extractor)
@@ -470,8 +474,7 @@ internal sealed class InstallerForm : Form
     }
     private static void CreateDocumentShortcut(string path, string document)
     {
-        Type type = Type.GetTypeFromProgID("WScript.Shell"); dynamic shell = Activator.CreateInstance(type); dynamic link = shell.CreateShortcut(path);
-        link.TargetPath = document; link.WorkingDirectory = Path.GetDirectoryName(document); link.Description = "Open the original game manual"; link.Save();
+        InstalledShellLink.Create(path, document, Path.GetDirectoryName(document), "Open the original game manual", null);
     }
     private static void RegisterUninstall(string root)
     {
