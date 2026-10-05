@@ -262,6 +262,14 @@ internal static class LauncherRuntime
 
     private static string SelectMedia(bool pm)
     {
+        if (DiscMediaSession.IsWine)
+        {
+            using (FolderBrowserDialog picker = new FolderBrowserDialog())
+            {
+                picker.Description = "Select your own mounted game CD drive in this Wine prefix. Mount ISO/BIN/CUE images in Linux first and keep the CD-ROM mapping available while playing.";
+                return picker.ShowDialog() == DialogResult.OK ? picker.SelectedPath : null;
+            }
+        }
         DialogResult choice = MessageBox.Show(
             "Choose Yes to locate the original ISO, or No to select its already mounted CD drive/folder. Keep a mapped CD drive available while playing under Wine.",
             "Locate " + (pm ? "Pirate's Moon" : "MechWarrior 3") + " disc",

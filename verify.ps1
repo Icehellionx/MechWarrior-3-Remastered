@@ -25,10 +25,27 @@ try {
     $assembly = [Reflection.Assembly]::LoadFile($setup)
     $type = $assembly.GetType('InstallerForm')
     $flags = [Reflection.BindingFlags]'NonPublic,Static'
+    $instanceFlags = [Reflection.BindingFlags]'NonPublic,Instance'
+    foreach ($wine in @($false, $true)) {
+        $installerForm = [Activator]::CreateInstance($type)
+        try {
+            $type.GetMethod('ConfigureMediaPickers', $instanceFlags).Invoke($installerForm, [object[]]@($wine))
+            $expectedButton = if ($wine) { 'CD folder...' } else { 'ISO...' }
+            if ($installerForm.Controls['browseMw3'].Text -ne $expectedButton) { throw 'Installer media picker policy failed.' }
+            if ($type.GetField('levelSounds', $instanceFlags)) { throw 'Sound leveling still requires a user choice.' }
+            if ($type.GetMethod('PerformInstall', $instanceFlags).GetParameters().Count -ne 1) { throw 'Installer still exposes the optional sound policy.' }
+        } finally { $installerForm.Dispose() }
+    }
+    Write-Host 'Packaged installer Wine media selection and default sound policy: passed.'
     $payload = [string](Join-Path $smoke 'payload')
     $game = [string](Join-Path $smoke 'game')
     New-Item -ItemType Directory -Path $payload | Out-Null
     $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+    $mediaPolicyTest = Join-Path $smoke 'InstallerMediaPolicySmoke.exe'
+    & $csc /nologo /target:exe /platform:x64 /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "/out:$mediaPolicyTest" (Join-Path $releaseRoot 'tests\InstallerMediaPolicySmoke.cs')
+    if ($LASTEXITCODE) { throw 'Installer media policy probe compilation failed.' }
+    & $mediaPolicyTest $setup false
+    if ($LASTEXITCODE) { throw 'Packaged Windows media policy failed.' }
     $netStandard = Get-ChildItem -LiteralPath 'C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework' -Filter netstandard.dll -Recurse |
         Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
     $registryTest = Join-Path $smoke 'GameInstallRegistrySmoke.exe'

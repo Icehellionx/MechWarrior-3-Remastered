@@ -1,6 +1,6 @@
 # Local sound-effect level candidate
 
-This is the source for setup's optional experimental change to unusually loud MechWarrior 3 sound effects. It changes only copied PCM samples from the exact supported US v1.2 `soundsH.zbd` and `soundsL.zbd` archives. The original disc, extracted source, music helper, and Pirate's Moon files remain unchanged. Generated ZBD files contain user-owned game audio: keep them local and do not commit or redistribute them.
+This is the source for setup's default adjustment to seven unusually loud MechWarrior 3 sound effects. It changes only copied PCM samples from the exact supported US v1.2 `soundsH.zbd` and `soundsL.zbd` archives. Setup retains the originals for restoration. The original disc, extracted source, music helper, and Pirate's Moon files remain unchanged. Generated ZBD files contain user-owned game audio: keep them local and do not commit or redistribute them.
 
 Build the leveler with the installed .NET Framework compiler, then point it at the original base game's `zbd` folder and an output folder outside the game:
 

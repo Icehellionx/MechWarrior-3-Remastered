@@ -166,6 +166,72 @@ internal sealed class VideoRecoveryConfig : IDisposable
 
 internal sealed class DiscMediaSession : IDisposable
 {
+    // Detect Wine itself rather than depending on optional shell variables.
+    public static bool IsWine
+    {
+        get
+        {
+            try { return GetProcAddress(GetModuleHandle("ntdll.dll"), "wine_get_version") != IntPtr.Zero; }
+            catch { return false; }
+        }
+    }
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern IntPtr GetModuleHandle(string name);
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Ansi, ExactSpelling = true)]
+    private static extern IntPtr GetProcAddress(IntPtr module, string name);
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern uint GetLogicalDrives();
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern uint GetDriveType(string root);
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern bool GetVolumeInformation(string root, StringBuilder label, int capacity,
+        out uint serial, out uint maximumComponentLength, out uint flags, IntPtr fileSystem, int fileSystemCapacity);
+
+    public static bool HasDiscCabinets(string root)
+    {
+        if (!Directory.Exists(root)) return false;
+        foreach (string file in Directory.GetFiles(root, "*", SearchOption.AllDirectories))
+        {
+            if (!Path.GetFileName(file).Equals("data1.hdr", StringComparison.OrdinalIgnoreCase)) continue;
+            foreach (string sibling in Directory.GetFiles(Path.GetDirectoryName(file)))
+                if (Path.GetFileName(sibling).Equals("data1.cab", StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+
+    public static string FindMountedMw3Disc()
+    {
+        string selected = null;
+        // Wine Mono's DriveInfo can omit mapped CD drives. Use the same Win32
+        // drive view as the original game, without changing any prefix mapping.
+        uint drives = GetLogicalDrives();
+        for (int index = 0; index < 26; index++)
+        {
+            if ((drives & (1u << index)) == 0) continue;
+            string root = ((char)('A' + index)).ToString() + ":\\";
+            try
+            {
+                // A directory-backed Wine CD mapping can report DRIVE_FIXED
+                // even with its prefix drive type set to cdrom. Match the exact
+                // retail label and cabinets before selecting any mapped drive.
+                uint type = GetDriveType(root);
+                if (type != 2 && type != 3 && type != 5) continue;
+                StringBuilder label = new StringBuilder(260);
+                uint serial, maximumComponentLength, flags;
+                if (!GetVolumeInformation(root, label, label.Capacity, out serial, out maximumComponentLength,
+                    out flags, IntPtr.Zero, 0) || !label.ToString().Equals("MW3", StringComparison.OrdinalIgnoreCase) ||
+                    !HasDiscCabinets(root)) continue;
+                // Ambiguous media stays a user selection; never guess a drive.
+                if (selected != null) return null;
+                selected = root;
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+        return selected;
+    }
+
     private readonly IsoMountSession iso;
     public string Root { get; private set; }
     public bool OwnsMount { get { return iso != null && iso.OwnsMount; } }
@@ -183,19 +249,20 @@ internal sealed class DiscMediaSession : IDisposable
 
     public static DiscMediaSession Open(string path, Action<string> log)
     {
+        return Open(path, log, IsWine);
+    }
+
+    internal static DiscMediaSession Open(string path, Action<string> log, bool wine)
+    {
         if (Directory.Exists(path))
         {
             string root = Path.GetFullPath(path);
-            bool hasInstaller = false;
+            bool hasInstaller = HasDiscCabinets(root);
             bool hasGame = false;
             foreach (string file in Directory.GetFiles(root, "*", SearchOption.AllDirectories))
             {
                 string name = Path.GetFileName(file);
                 if (name.Equals("Mech3.exe", StringComparison.OrdinalIgnoreCase)) hasGame = true;
-                if (!name.Equals("data1.hdr", StringComparison.OrdinalIgnoreCase)) continue;
-                foreach (string sibling in Directory.GetFiles(Path.GetDirectoryName(file)))
-                    if (Path.GetFileName(sibling).Equals("data1.cab", StringComparison.OrdinalIgnoreCase))
-                    { hasInstaller = true; break; }
             }
             if (!hasInstaller && !hasGame)
                 throw new InvalidDataException("The selected folder does not contain recognizable MechWarrior 3 disc files.");
@@ -203,6 +270,7 @@ internal sealed class DiscMediaSession : IDisposable
             return new DiscMediaSession(root, null);
         }
         if (!File.Exists(path)) throw new FileNotFoundException("The selected disc image or folder is unavailable.", path);
+        if (wine) throw new InvalidOperationException("Under Wine, mount your own CD or ISO/BIN/CUE image using Linux tools, then select its mounted CD drive with Folder. Keep its CD-ROM mapping available while playing. Windows ISO mounting is unavailable under Wine.");
         IsoMountSession iso = IsoMountSession.Attach(path, log);
         return new DiscMediaSession(iso.Root, iso);
     }

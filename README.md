@@ -6,9 +6,9 @@ This project is not affiliated with or endorsed by MicroProse, Hasbro Interactiv
 
 ## ⬇️ Download the installer
 
-### [Download MechWarrior 3 Remastered v1.2.8 Setup.exe](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/MechWarrior-3-Remastered-Setup.exe)
+### [Download MechWarrior 3 Remastered v1.2.9 Setup.exe](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest/download/MechWarrior-3-Remastered-Setup.exe)
 
-Current release: [v1.2.8](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/tag/v1.2.8)
+Current release: [v1.2.9](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/tag/v1.2.9)
 
 Renderer source and standalone package:
 [DDrawCompat-MW3](https://github.com/Icehellionx/DDrawCompat-MW3). This is the
@@ -16,10 +16,10 @@ public MW3-specific fork used by the remaster for graphics compatibility,
 including 32-bit render-color-depth promotion and the Pirate's Moon startup
 surface recovery.
 
-**Most people only need the installer link above.** You supply your own MechWarrior 3 ISO when the installer asks for it. The Pirate's Moon expansion is optional; the installer accepts it as an original ISO or as a reduced "RIP" archive (ZIP or extracted folder).
+**Most people only need the installer link above.** You supply your own MechWarrior 3 ISO or mounted CD folder. Under Wine, mount your own CD or ISO/BIN/CUE image in Linux; setup selects a detected MW3 drive or offers the CD-folder picker. The Pirate's Moon expansion is optional; the installer accepts it as an original ISO or as a reduced "RIP" archive (ZIP or extracted folder).
 
 1. Download and run the installer.
-2. Point it to your MechWarrior 3 ISO.
+2. Select your MechWarrior 3 ISO or mounted CD folder (Wine uses the mounted folder).
 3. Open the new desktop launcher and choose a game or manual.
 
 If the direct link does not work, open the [latest release page](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/latest) and download `MechWarrior-3-Remastered-Setup.exe` under **Assets**.
@@ -39,7 +39,7 @@ The two values should match exactly.
 
 ## Screenshots
 
-Captured from the running base game in the Ubuntu 24.04 / Wine 11 VM. This experimental route uses Wine's built-in graphics with the native audio shim; it does not show Windows DDrawCompat graphics enhancements. Captures use the tested r18/game runtime from the preceding candidate; v1.2.8 leaves those game binaries unchanged.
+Captured from the running base game in the Ubuntu 24.04 / Wine 11 VM. This experimental route uses Wine's built-in graphics with the native audio shim; it does not show Windows DDrawCompat graphics enhancements. Captures use the tested r18/game runtime from the preceding candidate; v1.2.9 leaves those game binaries unchanged.
 
 | Main menu | Instant-action briefing |
 | --- | --- |
@@ -80,7 +80,7 @@ Keep the MechWarrior 3 ISO at the path selected during setup. Pirate's Moon medi
 - Keeps the legacy 640×480 startup-video mode available alongside the tested 1024×768 gameplay mode; DDrawCompat scales gameplay to the desktop resolution. Changing resolution from the legacy in-game menu remains unsupported because it can crash the game.
 - Creates and checks writable `keys` storage so keyboard, mouse, joystick/HOTAS mappings can be saved without altering existing profiles.
 - The launcher offers **CONTROLS** guidance for the game's own remapping screen and can open Windows Game Controllers for joystick calibration. Device recognition and force feedback still need a real joystick test.
-- Offers an optional, experimental reduction for seven loud base-game effects. Setup changes only verified user-supplied sound banks, saves the originals in `OriginalSoundArchives`, and installs `Use-SoundLevelCandidate.ps1` so they can be restored. Pirate's Moon effects and CD music are unchanged.
+- Automatically reduces seven unusually loud base-game effects. Setup changes only verified user-supplied sound banks, saves the originals in `OriginalSoundArchives`, and installs `Use-SoundLevelCandidate.ps1` so they can be restored with `-GameRoot "<installed base-game folder>" -Restore`. Pirate's Moon effects and CD music are unchanged.
 - Restores the known-good Direct3D adapter and video-mode values before each recovery attempt and records launch diagnostics under `%LOCALAPPDATA%\MechWarrior 3 Remastered\launcher.log`.
 - Starts CD music at 60% on first launch and preserves later in-game volume changes. MP3 decoding uses the pinned MIT-licensed NLayer decoder and Windows `waveOut`, avoiding the legacy MCI MP3 driver. The audio helper shuts down with the game, including when the launcher is interrupted, so it does not retain installation-file locks.
 - Registers an uninstaller in Windows Apps/Installed apps.
@@ -102,7 +102,7 @@ See [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [THIRD_PARTY_NOTIC
 
 ### Wine/Linux disc selection
 
-Wine does not provide the Windows `Mount-DiskImage`/`Get-DiskImage`/`Get-Volume` pipeline used by the ISO picker. On Linux, mount your own MW3 ISO with your Linux desktop or distribution tools, expose that mounted directory as a CD-ROM drive in the same Wine prefix, then choose **Folder...** in setup and select the readable disc root. Keep the mount and Wine drive mapping available when launching the base game. The launcher accepts the saved folder path and leaves the external mount alone. Selecting an extracted disc folder may allow installation, but the base game's runtime disc check can still require a Wine CD-ROM mapping. Ubuntu 24.04 / Wine 11 testing passes both-game installation, two instant missions per game, pilot reload and audio probes with Wine built-in graphics and the native audio shim. Native DDrawCompat crashes under Wine; its Windows graphics enhancements are unavailable on this route. See [the experimental Wine recipe and limits](tools/wine/README.md).
+Wine does not provide the Windows `Mount-DiskImage`/`Get-DiskImage`/`Get-Volume` pipeline used by the ISO picker. Setup detects Wine, selects the mounted-CD folder route and preselects a unique readable CD-ROM labeled MW3 when available. On Linux, mount your own CD or ISO/BIN/CUE image with your desktop or distribution tools and expose it as a CD-ROM drive in the same Wine prefix. If setup cannot identify a unique MW3 disc, choose **CD folder...** and select the readable disc root. Windows ISO mounting commands are never used on this route. Keep the mount and Wine drive mapping available when launching the base game. The launcher accepts the saved folder path and leaves the external mount alone. Selecting an extracted disc folder may allow installation, but the base game's runtime disc check can still require a Wine CD-ROM mapping. Ubuntu 24.04 / Wine 11 testing passes both-game installation, two instant missions per game, pilot reload and audio probes with Wine built-in graphics and the native audio shim. Native DDrawCompat crashes under Wine; its Windows graphics enhancements are unavailable on this route. See [the experimental Wine recipe and limits](tools/wine/README.md).
 
 ## Reporting a bug
 

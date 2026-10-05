@@ -50,7 +50,7 @@ internal static class PackagedFolderInstallSmoke
                 }
                 form.Show(); Application.DoEvents();
                 MethodInfo install = type.GetMethod("PerformInstall", flags);
-                Task task = Task.Factory.StartNew(delegate { install.Invoke(form, new object[] { root, false }); });
+                Task task = Task.Factory.StartNew(delegate { install.Invoke(form, new object[] { root }); });
                 Stopwatch timer = Stopwatch.StartNew();
                 while (!task.IsCompleted && timer.Elapsed.TotalMinutes < 5)
                 { Application.DoEvents(); Thread.Sleep(25); }
@@ -58,6 +58,11 @@ internal static class PackagedFolderInstallSmoke
                 task.GetAwaiter().GetResult();
             }
             string game = Path.Combine(root, "MechWarrior 3");
+            if (Hash(Path.Combine(game, "zbd", "soundsH.zbd")) != "20AD72D51EAFFB4447A7CE09B408B017CFAA5A7034A82E73B85B539355579BCB" ||
+                Hash(Path.Combine(game, "zbd", "soundsL.zbd")) != "612F8EDB1E26884AAD04E34F3E73D41D7661F8652F97EB765C8C28EAC9A37D98" ||
+                Hash(Path.Combine(game, "OriginalSoundArchives", "soundsH.zbd")) != "71C4688E38D59E03D3E0A63C8EF90CCE0359103890904AAAB5DC461647F484A4" ||
+                Hash(Path.Combine(game, "OriginalSoundArchives", "soundsL.zbd")) != "E259704B36069339BAD035AE571F7733A6655ED2020C4D7E24B5C8872A3B09C3")
+                throw new InvalidOperationException("Default sound adjustment or original backups mismatch.");
             if (Directory.Exists(root + ".installing")) throw new InvalidOperationException("Staging remains.");
             foreach (string name in new[] { "MW3Launcher.exe", "Uninstall.exe", "PAYLOAD_MANIFEST.sha256", "install.cfg", "THIRD_PARTY_NOTICES.md" })
                 if (!File.Exists(Path.Combine(root, name))) throw new FileNotFoundException("Committed installation missing " + name);

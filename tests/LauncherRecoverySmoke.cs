@@ -20,6 +20,7 @@ internal static class LauncherRecoverySmoke
             IsoMountOwnershipIsParsed();
             DiscMountIgnoresWorkingDirectoryExecutable(root);
             PreMountedDiscFolderIsReadOnly(root);
+            WineMediaUsesBorrowedFolders(root);
             ConcurrentLaunchesAreRejected(root);
             EarlyCrashesRemainFailures();
             Console.WriteLine("Launcher recovery tests passed.");
@@ -34,6 +35,27 @@ internal static class LauncherRecoverySmoke
         {
             try { Directory.Delete(root, true); } catch { }
         }
+    }
+
+    private static void WineMediaUsesBorrowedFolders(string root)
+    {
+        string disc = Path.Combine(root, "wine-disc");
+        Directory.CreateDirectory(disc);
+        File.WriteAllText(Path.Combine(disc, "DATA1.HDR"), "header fixture");
+        File.WriteAllText(Path.Combine(disc, "DATA1.CAB"), "cabinet fixture");
+        if (!DiscMediaSession.HasDiscCabinets(disc)) throw new Exception("Mounted cabinet disc not recognized.");
+        using (DiscMediaSession session = DiscMediaSession.Open(disc, null, true))
+            if (session.OwnsMount || session.Root != disc) throw new Exception("Wine folder acquired mount ownership.");
+        if (!Directory.Exists(disc)) throw new Exception("Borrowed Wine disc was removed.");
+        string image = Path.Combine(root, "wine.iso");
+        File.WriteAllText(image, "image fixture");
+        try { using (DiscMediaSession session = DiscMediaSession.Open(image, null, true)) { } }
+        catch (InvalidOperationException ex)
+        {
+            if (!ex.Message.Contains("ISO/BIN/CUE") || !ex.Message.Contains("Folder")) throw;
+            return;
+        }
+        throw new Exception("Wine attempted Windows ISO mounting.");
     }
 
     private static void ExistingConfigIsRestored(string root)
