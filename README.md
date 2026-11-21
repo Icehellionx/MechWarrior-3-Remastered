@@ -10,6 +10,8 @@ This project is not affiliated with or endorsed by MicroProse, Hasbro Interactiv
 
 Current release: [v1.2.9](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/tag/v1.2.9)
 
+SteamOS testers can use the [Steam Deck Installation Variant (Alpha 1)](https://github.com/Icehellionx/MechWarrior-3-Remastered/releases/tag/steam-deck-alpha1) with their own original media. The ZIP includes the [Desktop Mode setup guide](tools/steam-deck/README.md) and a separate Proton launch profile.
+
 Renderer source and standalone package:
 [DDrawCompat-MW3](https://github.com/Icehellionx/DDrawCompat-MW3). This is the
 public MW3-specific fork used by the remaster for graphics compatibility,
